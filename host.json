@@ -2,25 +2,34 @@
   "version": "2.0",
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
-    "version": "[2.*, 3.0.0)"
+    "version": "[4.0.0, 5.0.0)"
   },
   "extensions": {
+    "eventHubs": {
+      "maxEventBatchSize" : 256,
+      "batchCheckpointFrequency" : 5,
+      "prefetchCount" : 1024,
+      "initialOffsetOptions" : {
+        "type" : "fromStart"
+      }
+    },
     "http": {
       "routePrefix": ""
     }
   },
+  "functions": [ "Info", "BlobFdrXmlToJsonEventProcessor" ],
   "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": false
+      }
+    },
     "fileLoggingMode": "always",
     "logLevel": {
       "default": "Information",
       "Host.Results": "Error",
       "Function": "Information",
       "Host.Aggregator": "Trace"
-    },
-    "applicationInsights": {
-      "samplingSettings": {
-        "isEnabled": false
     }
-  } 
-}
+  }
 }
