@@ -4,6 +4,10 @@ import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableServiceClient;
 import com.azure.data.tables.TableServiceClientBuilder;
 import com.azure.data.tables.models.TableEntity;
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.google.common.collect.Lists;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
@@ -53,17 +57,15 @@ public class FdrXmlToJson {
 	private static final String tableStorageConnString = System.getenv("TABLE_STORAGE_CONN_STRING");
 	private static final String tableName = System.getenv("TABLE_STORAGE_TABLE_NAME");
 
-	private static final String columnFieldId = "uniqueId";
-	private static final String columnFieldCreated = "created";
-	private static final String columnFieldFileName = "fileName";
-	private static final String columnFieldErrorCode = "errorCode";
-	private static final String columnFieldHttpEventType = "httpEventType";
-	private static final String columnFieldErrorResposne = "errorResposne";
-	private static final String columnFieldStackTrace = "stackTrace";
+	private static final String storageConnString = System.getenv("STORAGE_ACCOUNT_CONN_STRING");
+	private static final String blobContainerName = System.getenv("BLOB_CONTAINER_NAME");
+
 
 
 	private static InternalPspApi pspApi = null;
 	private static TableServiceClient tableServiceClient = null;
+
+	private static BlobContainerClient blobContainerClient;
 
 	private static final Map<StTipoIdentificativoUnivoco, SenderTypeEnum> typeMap = new LinkedHashMap<>();
 	private static final Map<String, PaymentStatusEnum> payStatusMap = new LinkedHashMap<>();
@@ -97,6 +99,14 @@ public class FdrXmlToJson {
 		return tableServiceClient;
 	}
 
+	private static BlobContainerClient getBlobContainerClient(){
+		if(blobContainerClient==null){
+			BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(storageConnString).buildClient();
+			blobContainerClient = blobServiceClient.createBlobContainerIfNotExists(blobContainerName);
+		}
+		return blobContainerClient;
+	}
+
     @FunctionName("BlobFdrXmlToJsonEventProcessor")
     public void processNodoReEvent (
 			@BlobTrigger(
@@ -108,9 +118,11 @@ public class FdrXmlToJson {
 			final ExecutionContext context) {
 
 		Logger logger = context.getLogger();
-        try {
-			logger.info("Java Blob trigger function processed a blob.\n Name: " + fileName + "\n Size: " + content.length + " Bytes");
+		logger.info("Java Blob trigger function processed a blob.\n Name: " + fileName + "\n Size: " + content.length + " Bytes");
 
+		String fdrBk = null;
+		String pspIdBk = null;
+		try {
 			// read xml
 			Document document = loadXMLString(content);
 			Element element = searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
@@ -120,13 +132,15 @@ public class FdrXmlToJson {
 
 			// extract pathparam for FDR
 			String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
+			fdrBk = fdr;
 			String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
+			pspIdBk = pspId;
 
 			// create body for create FDR
 			CreateRequest createRequest = getCreateRequest(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento);
 			// call create FDR
 			logger.info("Calling... "+HttpEventTypeEnum.INTERNAL_CREATE.name());
-			manageHttpError(logger, HttpEventTypeEnum.INTERNAL_CREATE, fileName, () ->
+			manageHttpError(logger, HttpEventTypeEnum.INTERNAL_CREATE, fileName, fdr, pspId, () ->
 				getPspApi().internalCreate(fdr, pspId, createRequest)
 			);
 
@@ -139,28 +153,39 @@ public class FdrXmlToJson {
 			// call addPayment FDR for every patition
 			for(AddPaymentRequest addPaymentRequest : addPaymentRequestList) {
 				logger.info("Calling... "+HttpEventTypeEnum.INTERNAL_ADD_PAYMENT.name()+" (partition=" + addPaymentRequestList.indexOf(addPaymentRequest) + 1 + ", tot payments=" + addPaymentRequest.getPayments().size() + ")");
-				manageHttpError(logger, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, fileName, () ->
+				manageHttpError(logger, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, fileName, fdr, pspId, () ->
 					getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest)
 				);
 			}
 
 			// call publish FDR
 			logger.info("Calling... "+HttpEventTypeEnum.INTERNAL_PUBLISH.name());
-			manageHttpError(logger, HttpEventTypeEnum.INTERNAL_PUBLISH, fileName, () ->
+			manageHttpError(logger, HttpEventTypeEnum.INTERNAL_PUBLISH, fileName, fdr, pspId, () ->
 				getPspApi().internalPublish(fdr, pspId)
 			);
 
+			// delete BLOB
+			logger.info("Deleting... blob file "+fileName);
+			try{
+				getBlobContainerClient().getBlobClient(fileName).delete();
+			} catch (Exception e) {
+				Instant now = Instant.now();
+				ErrorEnum error = ErrorEnum.DELETE_BLOB_ERROR;
+				String message = getErrorMessage(error, fileName, now);
+				logger.log(Level.SEVERE, message, e);
+				sendGenericError(logger, now, fileName, fdr, pspId, error, e);
+				throw new AppException(message, e);
+			}
 
-			//TODO cancellare da blob il file? (la funzione cancellerà)
 			logger.info("Done processing events");
 		} catch (AppException e) {
 			logger.info("Failure processing events");
 		} catch (Exception e) {
 			Instant now = Instant.now();
-			String errorCode = "GENERIC_ERROR";
-			String message = getErrorMessage(errorCode, fileName, now);
+			ErrorEnum error = ErrorEnum.GENERIC_ERROR;
+			String message = getErrorMessage(error, fileName, now);
 			logger.log(Level.SEVERE, message, e);
-			sendGenericError(logger, now, fileName, errorCode, e);
+			sendGenericError(logger, now, fileName, fdrBk, pspIdBk, error, e);
 			logger.info("Failure processing events");
         }
     }
@@ -176,13 +201,13 @@ public class FdrXmlToJson {
 		T get() throws ApiException;
 	}
 
-	private static String getHttpErrorMessage(String errorCode, String fileName, HttpEventTypeEnum httpEventTypeEnum, Instant now){
-		return "[ALERT] [errorCode="+errorCode+"] [fileName"+fileName+"] [httpEventTypeEnum"+httpEventTypeEnum.name()+"] Http error at "+ now;
+	private static String getHttpErrorMessage(ErrorEnum errorEnum, String fileName, HttpEventTypeEnum httpEventTypeEnum, String errorCode, Instant now){
+		return "[ALERT] [error="+errorEnum.name()+"] [fileName"+fileName+"] [httpEventTypeEnum"+httpEventTypeEnum.name()+"] [errorCode="+errorCode+"] Http error at "+ now;
 	}
-	private static String getErrorMessage(String errorCode, String fileName, Instant now){
-		return "[ALERT] [errorCode="+errorCode+"] [fileName"+fileName+"] Http error at "+ now;
+	private static String getErrorMessage(ErrorEnum errorEnum, String fileName, Instant now){
+		return "[ALERT] [error="+errorEnum.name()+"] [fileName"+fileName+"] Http error at "+ now;
 	}
-	private static<T> void manageHttpError(Logger logger, HttpEventTypeEnum httpEventTypeEnum, String fileName, SupplierWithApiException<T> fn){
+	private static<T> void manageHttpError(Logger logger, HttpEventTypeEnum httpEventTypeEnum, String fileName, String fdr, String pspId, SupplierWithApiException<T> fn){
 		try {
 			fn.get();
 		} catch (ApiException e) {
@@ -194,36 +219,40 @@ public class FdrXmlToJson {
 				errorCode = "ERROR_PARSE_RESPONSE";
 			}
 			Instant now = Instant.now();
-			String message = getHttpErrorMessage(errorCode, fileName, httpEventTypeEnum, now);
+			ErrorEnum error = ErrorEnum.HTTP_ERROR;
+			String message = getHttpErrorMessage(error, fileName, httpEventTypeEnum, errorCode, now);
 			logger.log(Level.SEVERE, message, e);
-			sendHttpError(logger, now, fileName, errorCode, httpEventTypeEnum, errorResposne, e);
+			sendHttpError(logger, now, fileName, fdr, pspId, error, httpEventTypeEnum, errorResposne, errorCode, e);
 			throw new AppException(message, e);
 		}
 	}
 
-	private static void sendGenericError(Logger logger, Instant now, String fileName, String errorCode, Exception e){
-		_sendToErrorTable(logger, now, fileName, errorCode,Optional.empty(), Optional.empty(), e);
+	private static void sendGenericError(Logger logger, Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, Exception e){
+		_sendToErrorTable(logger, now, fileName, fdr, pspId, errorEnum, Optional.empty(),Optional.empty(), Optional.empty(), e);
 	}
-	private static void sendHttpError(Logger logger, Instant now, String fileName, String errorCode, HttpEventTypeEnum httpEventTypeEnum, String errorResposne, Exception e){
-		_sendToErrorTable(logger, now, fileName, errorCode,Optional.of(httpEventTypeEnum), Optional.of(errorResposne), e);
+	private static void sendHttpError(Logger logger, Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String httpErrorResposne, String httpErrorCode, Exception e){
+		_sendToErrorTable(logger, now, fileName, fdr, pspId, errorEnum, Optional.of(httpEventTypeEnum), Optional.of(httpErrorResposne), Optional.of(httpErrorCode), e);
 	}
-	private static void _sendToErrorTable(Logger logger, Instant now, String fileName, String errorCode, Optional<HttpEventTypeEnum> httpEventTypeEnum, Optional<String> errorResposne, Exception e){
+	private static void _sendToErrorTable(Logger logger, Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, Optional<HttpEventTypeEnum> httpEventTypeEnum, Optional<String> httpErrorResposne, Optional<String> httpErrorCode, Exception e){
 		String id = UUID.randomUUID().toString();
-		Map<String,Object> error = new LinkedHashMap<>();
-		error.put(columnFieldId, id);
-		error.put(columnFieldCreated, now);
-		error.put(columnFieldFileName, fileName);
-		error.put(columnFieldErrorCode, errorCode);
-		httpEventTypeEnum.ifPresent(a -> error.put(columnFieldHttpEventType, a));
-		errorResposne.ifPresent(a -> error.put(columnFieldErrorResposne, a));
-		error.put(columnFieldStackTrace, ExceptionUtils.getStackTrace(e));
+		Map<String,Object> errorMap = new LinkedHashMap<>();
+		errorMap.put(AppConstant.columnFieldId, id);
+		errorMap.put(AppConstant.columnFieldCreated, now);
+		errorMap.put(AppConstant.columnFieldFileName, fileName);
+		errorMap.put(AppConstant.columnFieldFdr, fdr);
+		errorMap.put(AppConstant.columnFieldPspId, pspId);
+		errorMap.put(AppConstant.columnFieldErrorType, errorEnum.name());
+		httpEventTypeEnum.ifPresent(a -> errorMap.put(AppConstant.columnFieldHttpEventType, a.name()));
+		httpErrorResposne.ifPresent(a -> errorMap.put(AppConstant.columnFieldHttpErrorResposne, a));
+		httpErrorCode.ifPresent(a -> errorMap.put(AppConstant.columnFieldHttpErrorCode, a));
+		errorMap.put(AppConstant.columnFieldStackTrace, ExceptionUtils.getStackTrace(e));
 
-		String partitionKey = ((String)(error.get(columnFieldCreated))).substring(0,13);
+		String partitionKey =  now.toString().substring(0,10);
 
+		logger.info("Send to "+tableName+" record with "+AppConstant.columnFieldId+"="+id);
 		TableClient tableClient = getTableServiceClient().getTableClient(tableName);
 		TableEntity entity = new TableEntity(partitionKey, id);
-		entity.setProperties(error);
-		logger.info("Send to "+tableName+" record with "+columnFieldId+"="+id);
+		entity.setProperties(errorMap);
 		tableClient.createEntity(entity);
 	}
 

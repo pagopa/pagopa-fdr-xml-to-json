@@ -17,7 +17,7 @@
       "routePrefix": ""
     }
   },
-  "functions": [ "Info", "BlobFdrXmlToJsonEventProcessor" ],
+  "functions": [ "Info", "BlobFdrXmlToJsonEventProcessor", "XmlErrorRetry" ],
   "logging": {
     "applicationInsights": {
       "samplingSettings": {
