@@ -15,7 +15,6 @@ import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Unmarshaller;
 import org.openapitools.client.ApiClient;
 import org.openapitools.client.ApiException;
-import org.openapitools.client.ApiResponse;
 import org.openapitools.client.api.InternalPspApi;
 import org.openapitools.client.model.*;
 import org.w3c.dom.Document;
@@ -28,9 +27,12 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.stream.StreamSource;
 import java.io.ByteArrayInputStream;
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.io.IOException;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -39,11 +41,10 @@ import java.util.stream.Collectors;
  * Azure Functions with Azure Queue trigger.
  */
 public class FdrXmlToJson {
-    /**
-     * This function will be invoked when an Event Hub trigger occurs
-     */
-
 	private static final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
+	private static final String ENV_FDR_NEW_BASE_URL = "FDR_NEW_BASE_URL";
+	private static final String ENV_FDR_NEW_API_KEY = "FDR_NEW_API_KEY";
+	private static final String ENV_ADD_PAYMENT_REQUEST_PARTITION_SIZE = "ADD_PAYMENT_REQUEST_PARTITION_SIZE";
 
 	private static InternalPspApi pspApi = null;
 
@@ -61,12 +62,11 @@ public class FdrXmlToJson {
 
 	private static InternalPspApi getPspApi(){
 		if(pspApi==null){
-			String url = System.getenv("FDR_NEW_BASE_URL");
-			String apiKey = System.getenv("FDR_NEW_API_KEY");
+			String url = System.getenv(ENV_FDR_NEW_BASE_URL);
+			String apiKey = System.getenv(ENV_FDR_NEW_API_KEY);
 
 			ApiClient apiClient = new ApiClient();
 			apiClient.setApiKey(apiKey);
-//			apiClient.setBasePath(url);
 			pspApi = new InternalPspApi(apiClient);
 			pspApi.setCustomBaseUrl(url);
 		}
@@ -84,86 +84,111 @@ public class FdrXmlToJson {
 			final ExecutionContext context) {
 
 		Logger logger = context.getLogger();
-		logger.info("Java Blob trigger function processed a blob.\n Name: " + fileName + "\n Size: " + content.length + " Bytes");
-
         try {
+			logger.info("Java Blob trigger function processed a blob.\n Name: " + fileName + "\n Size: " + content.length + " Bytes");
+
+			// read xml
 			Document document = loadXMLString(content);
 			Element element = searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
 			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = getInstanceByNode(element, NodoInviaFlussoRendicontazioneRequest.class);
 			CtFlussoRiversamento ctFlussoRiversamento = getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
 			logger.info("Id flusso: "+ctFlussoRiversamento.getIdentificativoFlusso());
 
+			// extract pathparam for FDR
 			String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
 			String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
 
+			// create body for create FDR
 			CreateRequest createRequest = getCreateRequest(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento);
-			try {
-				logger.info("Calling... internalCreate");
-				getPspApi().internalCreate(fdr, pspId, createRequest);
-			} catch (ApiException e) {
-				ErrorResponse errorResponse = ErrorResponse.fromJson(e.getResponseBody());
-				if("FDR-0702".equals(errorResponse.getAppErrorCode())){
-					//se esiste già prova a cancellare e ricreare
-					getPspApi().internalDelete(fdr, pspId);
-					getPspApi().internalCreate(fdr, pspId, createRequest);
-				} else {
-					//per qualsiasi altro errore va indagato lo specifico caso
-					String message = "Http error internalCreate at "+ LocalDateTime.now();
-					logger.log(Level.SEVERE, message, e);
-					//TODO spostare in una cosa di errori
-					throw new AppException(message, e);
-				}
-			}
+			// call create FDR
+			logger.info("Calling... "+HttpEventTypeEnum.INTERNAL_CREATE.name());
+			manageHttpError(logger, HttpEventTypeEnum.INTERNAL_CREATE, fileName, () ->
+				getPspApi().internalCreate(fdr, pspId, createRequest)
+			);
 
+			// create body for addPayment FDR (partitioned)
 			List<CtDatiSingoliPagamenti> datiSingoliPagamenti = ctFlussoRiversamento.getDatiSingoliPagamenti();
 			logger.info("Tot CtDatiSingoliPagamenti ["+datiSingoliPagamenti.size()+"]");
-			int partitionSize = Integer.valueOf(System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE"));
+			int partitionSize = Integer.valueOf(System.getenv(ENV_ADD_PAYMENT_REQUEST_PARTITION_SIZE));
 			List<AddPaymentRequest> addPaymentRequestList = getAddPaymentRequestListPartioned(datiSingoliPagamenti, partitionSize);
 			logger.info("Tot AddPaymentRequest=["+addPaymentRequestList.size()+"], partioned by ["+partitionSize+"]");
-			try {
-				for(AddPaymentRequest addPaymentRequest : addPaymentRequestList) {
-					logger.info("Calling... (partition=" + addPaymentRequestList.indexOf(addPaymentRequest) + 1 + ") internalAddPayment (tot payments [" + addPaymentRequest.getPayments().size() + "])");
-					getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest);
-				}
-			} catch (ApiException e) {
-				// per qualsiasi errore
-				String message = "Http error internalAddPayment at "+ LocalDateTime.now();
-				logger.log(Level.SEVERE, message, e);
-				//TODO spostare in una cosa di errori
-				throw new AppException(message, e);
+			// call addPayment FDR for every patition
+			for(AddPaymentRequest addPaymentRequest : addPaymentRequestList) {
+				logger.info("Calling... "+HttpEventTypeEnum.INTERNAL_ADD_PAYMENT.name()+" (partition=" + addPaymentRequestList.indexOf(addPaymentRequest) + 1 + ", tot payments=" + addPaymentRequest.getPayments().size() + ")");
+				manageHttpError(logger, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, fileName, () ->
+					getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest)
+				);
 			}
 
-			try {
-				logger.info("Calling... internalPublish");
-				getPspApi().internalPublish(fdr, pspId);
-			} catch (ApiException e) {
-				// per qualsiasi errore
-				String message = "Http error internalPublish at "+ LocalDateTime.now();
-				logger.log(Level.SEVERE, message, e);
-				//TODO spostare in una cosa di errori
-				throw new AppException(message, e);
-			}
+			// call publish FDR
+			logger.info("Calling... "+HttpEventTypeEnum.INTERNAL_PUBLISH.name());
+			manageHttpError(logger, HttpEventTypeEnum.INTERNAL_PUBLISH, fileName, () ->
+				getPspApi().internalPublish(fdr, pspId)
+			);
 
-			//TODO cancellare da blob il file?
+
+			//TODO cancellare da blob il file? (la funzione cancellerà)
 			logger.info("Done processing events");
 		} catch (AppException e) {
+			logger.info("Failure processing events");
 		} catch (Exception e) {
-            logger.log(Level.SEVERE, "Generic exception at "+ LocalDateTime.now(), e);
+			Instant now = Instant.now();
+			String errorCode = "GENERIC_ERROR";
+			String message = getErrorMessage(errorCode, fileName, now);
+			logger.log(Level.SEVERE, message, e);
+			sendGenericError(now, fileName, errorCode, e);
+			logger.info("Failure processing events");
         }
     }
 
+	private enum HttpEventTypeEnum {
+		INTERNAL_CREATE,
+		INTERNAL_ADD_PAYMENT,
+		INTERNAL_PUBLISH;
+	}
+
+	@FunctionalInterface
+	public interface SupplierWithApiException<T> {
+		T get() throws ApiException;
+	}
+
+	private static String getHttpErrorMessage(String errorCode, String fileName, HttpEventTypeEnum httpEventTypeEnum, Instant now){
+		return "[ALERT] [errorCode="+errorCode+"] [fileName"+fileName+"] [httpEventTypeEnum"+httpEventTypeEnum.name()+"] Http error at "+ now;
+	}
+	private static String getErrorMessage(String errorCode, String fileName, Instant now){
+		return "[ALERT] [errorCode="+errorCode+"] [fileName"+fileName+"] Http error at "+ now;
+	}
+	private static<T> void manageHttpError(Logger logger, HttpEventTypeEnum httpEventTypeEnum, String fileName, SupplierWithApiException<T> fn){
+		try {
+			fn.get();
+		} catch (ApiException e) {
+			String errorResposne = e.getResponseBody();
+			String errorCode = null;
+			try {
+				errorCode = ErrorResponse.fromJson(errorResposne).getAppErrorCode();
+			} catch (IOException ex) {
+				errorCode = "ERROR_PARSE_RESPONSE";
+			}
+			Instant now = Instant.now();
+			String message = getHttpErrorMessage(errorCode, fileName, httpEventTypeEnum, now);
+			logger.log(Level.SEVERE, message, e);
+			sendHttpError(now, fileName, errorCode, httpEventTypeEnum, errorResposne, e);
+			throw new AppException(message, e);
+		}
+	}
+
+	private static void sendGenericError(Instant now, String fileName, String errorCode, Exception e){
+		_sendToErrorTable(now, fileName, errorCode,Optional.empty(), Optional.empty(), e);
+	}
+	private static void sendHttpError(Instant now, String fileName, String errorCode, HttpEventTypeEnum httpEventTypeEnum, String errorResposne, Exception e){
+		_sendToErrorTable(now, fileName, errorCode,Optional.of(httpEventTypeEnum), Optional.of(errorResposne), e);
+	}
+	private static void _sendToErrorTable(Instant now, String fileName, String errorCode, Optional<HttpEventTypeEnum> httpEventTypeEnum, Optional<String> errorResposne, Exception e){
+		//TODO
+	}
+
 	private List<AddPaymentRequest> getAddPaymentRequestListPartioned(List<CtDatiSingoliPagamenti> datiSingoliPagamentiList, int size){
 		List<List<CtDatiSingoliPagamenti>> datiSingoliPagamentiPartitioned = Lists.partition(datiSingoliPagamentiList, size);
-
-//		List<AddPaymentRequest> addPaymentRequestList = new ArrayList<>();
-//		for(int i = 0; i<datiSingoliPagamentiPartitioned.size();i++){
-//			AddPaymentRequest addPaymentRequest = new AddPaymentRequest();
-//			for(int a = 0; a<datiSingoliPagamentiPartitioned.get(i).size();a++){
-//				addPaymentRequest.addPaymentsItem(getPayment(datiSingoliPagamentiPartitioned.get(i).get(a)));
-//			}
-//			addPaymentRequestList.add(addPaymentRequest);
-//		}
-//		return addPaymentRequestList;
 		return datiSingoliPagamentiPartitioned.stream()
 				.map(datiSingoliPagamentiListPartion -> {
 					AddPaymentRequest addPaymentRequest = new AddPaymentRequest();
