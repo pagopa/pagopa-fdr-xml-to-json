@@ -1,5 +1,9 @@
 package it.gov.pagopa.fdrxmltojson;
 
+import com.azure.data.tables.TableClient;
+import com.azure.data.tables.TableServiceClient;
+import com.azure.data.tables.TableServiceClientBuilder;
+import com.azure.data.tables.models.TableEntity;
 import com.google.common.collect.Lists;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
@@ -13,6 +17,7 @@ import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Unmarshaller;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.openapitools.client.ApiClient;
 import org.openapitools.client.ApiException;
 import org.openapitools.client.api.InternalPspApi;
@@ -29,10 +34,7 @@ import javax.xml.transform.stream.StreamSource;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -42,11 +44,26 @@ import java.util.stream.Collectors;
  */
 public class FdrXmlToJson {
 	private static final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
-	private static final String ENV_FDR_NEW_BASE_URL = "FDR_NEW_BASE_URL";
-	private static final String ENV_FDR_NEW_API_KEY = "FDR_NEW_API_KEY";
-	private static final String ENV_ADD_PAYMENT_REQUEST_PARTITION_SIZE = "ADD_PAYMENT_REQUEST_PARTITION_SIZE";
+
+
+	private static final String fdrNewBaseUrl = System.getenv("FDR_NEW_BASE_URL");
+	private static final String fdrNewApiKey = System.getenv("FDR_NEW_API_KEY");
+	private static final String addPaymentRequestPartitionSize = System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE");
+
+	private static final String tableStorageConnString = System.getenv("TABLE_STORAGE_CONN_STRING");
+	private static final String tableName = System.getenv("TABLE_STORAGE_TABLE_NAME");
+
+	private static final String columnFieldId = "uniqueId";
+	private static final String columnFieldCreated = "created";
+	private static final String columnFieldFileName = "fileName";
+	private static final String columnFieldErrorCode = "errorCode";
+	private static final String columnFieldHttpEventType = "httpEventType";
+	private static final String columnFieldErrorResposne = "errorResposne";
+	private static final String columnFieldStackTrace = "stackTrace";
+
 
 	private static InternalPspApi pspApi = null;
+	private static TableServiceClient tableServiceClient = null;
 
 	private static final Map<StTipoIdentificativoUnivoco, SenderTypeEnum> typeMap = new LinkedHashMap<>();
 	private static final Map<String, PaymentStatusEnum> payStatusMap = new LinkedHashMap<>();
@@ -62,15 +79,22 @@ public class FdrXmlToJson {
 
 	private static InternalPspApi getPspApi(){
 		if(pspApi==null){
-			String url = System.getenv(ENV_FDR_NEW_BASE_URL);
-			String apiKey = System.getenv(ENV_FDR_NEW_API_KEY);
-
 			ApiClient apiClient = new ApiClient();
-			apiClient.setApiKey(apiKey);
+			apiClient.setApiKey(fdrNewApiKey);
 			pspApi = new InternalPspApi(apiClient);
-			pspApi.setCustomBaseUrl(url);
+			pspApi.setCustomBaseUrl(fdrNewBaseUrl);
 		}
 		return pspApi;
+	}
+
+	private static TableServiceClient getTableServiceClient(){
+		if(tableServiceClient==null){
+			tableServiceClient = new TableServiceClientBuilder()
+					.connectionString(tableStorageConnString)
+					.buildClient();
+			tableServiceClient.createTableIfNotExists(tableName);
+		}
+		return tableServiceClient;
 	}
 
     @FunctionName("BlobFdrXmlToJsonEventProcessor")
@@ -109,7 +133,7 @@ public class FdrXmlToJson {
 			// create body for addPayment FDR (partitioned)
 			List<CtDatiSingoliPagamenti> datiSingoliPagamenti = ctFlussoRiversamento.getDatiSingoliPagamenti();
 			logger.info("Tot CtDatiSingoliPagamenti ["+datiSingoliPagamenti.size()+"]");
-			int partitionSize = Integer.valueOf(System.getenv(ENV_ADD_PAYMENT_REQUEST_PARTITION_SIZE));
+			int partitionSize = Integer.parseInt(addPaymentRequestPartitionSize);
 			List<AddPaymentRequest> addPaymentRequestList = getAddPaymentRequestListPartioned(datiSingoliPagamenti, partitionSize);
 			logger.info("Tot AddPaymentRequest=["+addPaymentRequestList.size()+"], partioned by ["+partitionSize+"]");
 			// call addPayment FDR for every patition
@@ -136,7 +160,7 @@ public class FdrXmlToJson {
 			String errorCode = "GENERIC_ERROR";
 			String message = getErrorMessage(errorCode, fileName, now);
 			logger.log(Level.SEVERE, message, e);
-			sendGenericError(now, fileName, errorCode, e);
+			sendGenericError(logger, now, fileName, errorCode, e);
 			logger.info("Failure processing events");
         }
     }
@@ -172,19 +196,35 @@ public class FdrXmlToJson {
 			Instant now = Instant.now();
 			String message = getHttpErrorMessage(errorCode, fileName, httpEventTypeEnum, now);
 			logger.log(Level.SEVERE, message, e);
-			sendHttpError(now, fileName, errorCode, httpEventTypeEnum, errorResposne, e);
+			sendHttpError(logger, now, fileName, errorCode, httpEventTypeEnum, errorResposne, e);
 			throw new AppException(message, e);
 		}
 	}
 
-	private static void sendGenericError(Instant now, String fileName, String errorCode, Exception e){
-		_sendToErrorTable(now, fileName, errorCode,Optional.empty(), Optional.empty(), e);
+	private static void sendGenericError(Logger logger, Instant now, String fileName, String errorCode, Exception e){
+		_sendToErrorTable(logger, now, fileName, errorCode,Optional.empty(), Optional.empty(), e);
 	}
-	private static void sendHttpError(Instant now, String fileName, String errorCode, HttpEventTypeEnum httpEventTypeEnum, String errorResposne, Exception e){
-		_sendToErrorTable(now, fileName, errorCode,Optional.of(httpEventTypeEnum), Optional.of(errorResposne), e);
+	private static void sendHttpError(Logger logger, Instant now, String fileName, String errorCode, HttpEventTypeEnum httpEventTypeEnum, String errorResposne, Exception e){
+		_sendToErrorTable(logger, now, fileName, errorCode,Optional.of(httpEventTypeEnum), Optional.of(errorResposne), e);
 	}
-	private static void _sendToErrorTable(Instant now, String fileName, String errorCode, Optional<HttpEventTypeEnum> httpEventTypeEnum, Optional<String> errorResposne, Exception e){
-		//TODO
+	private static void _sendToErrorTable(Logger logger, Instant now, String fileName, String errorCode, Optional<HttpEventTypeEnum> httpEventTypeEnum, Optional<String> errorResposne, Exception e){
+		String id = UUID.randomUUID().toString();
+		Map<String,Object> error = new LinkedHashMap<>();
+		error.put(columnFieldId, id);
+		error.put(columnFieldCreated, now);
+		error.put(columnFieldFileName, fileName);
+		error.put(columnFieldErrorCode, errorCode);
+		httpEventTypeEnum.ifPresent(a -> error.put(columnFieldHttpEventType, a));
+		errorResposne.ifPresent(a -> error.put(columnFieldErrorResposne, a));
+		error.put(columnFieldStackTrace, ExceptionUtils.getStackTrace(e));
+
+		String partitionKey = ((String)(error.get(columnFieldCreated))).substring(0,13);
+
+		TableClient tableClient = getTableServiceClient().getTableClient(tableName);
+		TableEntity entity = new TableEntity(partitionKey, id);
+		entity.setProperties(error);
+		logger.info("Send to "+tableName+" record with "+columnFieldId+"="+id);
+		tableClient.createEntity(entity);
 	}
 
 	private List<AddPaymentRequest> getAddPaymentRequestListPartioned(List<CtDatiSingoliPagamenti> datiSingoliPagamentiList, int size){

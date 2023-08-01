@@ -44,6 +44,10 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-storage-blob</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-data-tables</artifactId>
+        </dependency>
         <!-- End Azure -->
 
         <!-- Test -->
@@ -206,7 +210,11 @@
             <version>32.1.1-jre</version>
         </dependency>
 
-
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.12.0</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
