@@ -1,16 +1,17 @@
-# pagoPA Functions template
+# pagoPA Functions fdr-xml-to-json-fn
 
-Java template to create an Azure Function.
+Java fdr-re-to-datastore Azure Function.
+The function aims to dump RE sent via Azure Event Hub to a CosmosDB, with a TTL of 120 days, and to an Azure Table Storage with a TTL of 10 years.
 
-## Function examples
-There is an example of a Http Trigger function.
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=pagopa_pagopa-fdr-re-to-datastore&metric=alert_status)](https://sonarcloud.io/dashboard?id=pagopa_pagopa-fdr-re-to-datastore)
+
 
 ---
 
 ## Run locally with Docker
-`docker build -t pagopa-functions-template .`
+`docker build -t pagopa-functions-fdr-xml-to-json .`
 
-`docker run -p 8999:80 pagopa-functions-template`
+`docker run -it -rm -p 8999:80 pagopa-functions-fdr-xml-to-json`
 
 ### Test
 `curl http://localhost:8999/example`
@@ -22,21 +23,6 @@ There is an example of a Http Trigger function.
 `mvn azure-functions:run`
 
 ### Test
-`curl http://localhost:7071/example` 
+`curl http://localhost:7071/example`
 
 ---
-
-
-## TODO
-Once cloned the repo, you should:
-- to deploy on standard Azure service:
-  - rename `deploy-pipelines-standard.yml` to `deploy-pipelines.yml`
-  - remove `helm` folder
-- to deploy on Kubernetes:
-  - rename `deploy-pipelines-aks.yml` to `deploy-pipelines.yml`
-  - customize `helm` configuration
-- configure the following GitHub action in `.github` folder: 
-  - `deploy.yml`
-  - `sonar_analysis.yml`
-
-Configure the SonarCloud project :point_right: [guide](https://pagopa.atlassian.net/wiki/spaces/DEVOPS/pages/147193860/SonarCloud+experimental).
