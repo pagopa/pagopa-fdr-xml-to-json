@@ -128,13 +128,14 @@ public class FdrXmlToJson {
 			Element element = searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
 			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = getInstanceByNode(element, NodoInviaFlussoRendicontazioneRequest.class);
 			CtFlussoRiversamento ctFlussoRiversamento = getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
-			logger.info("Id flusso: "+ctFlussoRiversamento.getIdentificativoFlusso());
 
 			// extract pathparam for FDR
 			String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
 			fdrBk = fdr;
 			String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
 			pspIdBk = pspId;
+
+			logger.info("Process fdr=["+fdr+"], pspId=["+pspId+"]");
 
 			// create body for create FDR
 			CreateRequest createRequest = getCreateRequest(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento);
