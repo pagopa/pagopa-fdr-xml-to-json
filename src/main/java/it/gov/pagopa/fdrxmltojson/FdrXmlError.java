@@ -135,7 +135,8 @@ public class FdrXmlError {
 			getBlobContainerClient().getBlobClient(fileName).delete();
 		} else {
 			if(deleteOnlyByKey){
-				logger.info("NOT Modify trick for start trigger");
+				logger.info("NOT Modify trick for start trigger, delete only");
+				getBlobContainerClient().getBlobClient(fileName).delete();
 			} else {
 				logger.info("Modify trick for start trigger");
 				BinaryData binaryData = getBlobContainerClient().getBlobClient(fileName).downloadContent();
