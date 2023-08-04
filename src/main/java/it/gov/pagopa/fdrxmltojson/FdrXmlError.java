@@ -118,6 +118,7 @@ public class FdrXmlError {
 		//cancella da FDR
 		String fdr = (String)tableEntity.getProperty(AppConstant.columnFieldFdr);
 		String pspId = (String)tableEntity.getProperty(AppConstant.columnFieldPspId);
+		logger.info("Process fdr=["+fdr+"], pspId=["+pspId+"]");
 		try {
 			logger.info("Calling... internalDelete");
 			getPspApi().internalDelete(fdr, pspId);
