@@ -82,20 +82,21 @@ public class FdrXmlError {
 		try{
 			String partitionKey = request.getQueryParameters().get("partitionKey");
 			String rowKey = request.getQueryParameters().get("rowKey");
+			boolean deleteOnlyByKey = Boolean.parseBoolean(request.getQueryParameters().get("deleteOnlyByKey"));
 			TableClient tableClient = getTableServiceClient().getTableClient(tableName);
 			String message = null;
 			if(partitionKey != null && rowKey != null){
 				message = "Retrieve a single entity with [partitionKey="+partitionKey+"] [rowKey="+rowKey+"]";
 				logger.info(message);
 				TableEntity tableEntity = tableClient.getEntity(partitionKey, rowKey);
-				process(logger, tableClient, tableEntity);
+				process(logger, tableClient, tableEntity, deleteOnlyByKey);
 			} else {
 				message = "Retrieve all entity";
 				logger.info(message);
 				Iterator<TableEntity> itr = tableClient.listEntities().iterator();
 				while (itr.hasNext()) {
 					TableEntity tableEntity = itr.next();
-					process(logger, tableClient, tableEntity);
+					process(logger, tableClient, tableEntity, false);
 				}
 			}
 			logger.info("Done processing events");
@@ -113,7 +114,7 @@ public class FdrXmlError {
 	}
 
 
-	private static void process(Logger logger, TableClient tableClient, TableEntity tableEntity) {
+	private static void process(Logger logger, TableClient tableClient, TableEntity tableEntity, boolean deleteOnlyByKey) {
 		//cancella da FDR
 		String fdr = (String)tableEntity.getProperty(AppConstant.columnFieldFdr);
 		String pspId = (String)tableEntity.getProperty(AppConstant.columnFieldPspId);
@@ -133,9 +134,13 @@ public class FdrXmlError {
 			logger.info("Delete only blob");
 			getBlobContainerClient().getBlobClient(fileName).delete();
 		} else {
-			logger.info("Modify trick for start trigger");
-			BinaryData binaryData = getBlobContainerClient().getBlobClient(fileName).downloadContent();
-			getBlobContainerClient().getBlobClient(fileName).upload(binaryData, true);
+			if(deleteOnlyByKey){
+				logger.info("NOT Modify trick for start trigger");
+			} else {
+				logger.info("Modify trick for start trigger");
+				BinaryData binaryData = getBlobContainerClient().getBlobClient(fileName).downloadContent();
+				getBlobContainerClient().getBlobClient(fileName).upload(binaryData, true);
+			}
 		}
 
 		//cancello la riga degli errori
