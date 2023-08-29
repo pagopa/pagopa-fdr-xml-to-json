@@ -203,10 +203,10 @@ public class FdrXmlToJson {
 	}
 
 	private static String getHttpErrorMessage(ErrorEnum errorEnum, String fileName, HttpEventTypeEnum httpEventTypeEnum, String errorCode, Instant now){
-		return "[ALERT] [error="+errorEnum.name()+"] [fileName"+fileName+"] [httpEventTypeEnum"+httpEventTypeEnum.name()+"] [errorCode="+errorCode+"] Http error at "+ now;
+		return "[ALERT] [error="+errorEnum.name()+"] [fileName="+fileName+"] [httpEventTypeEnum="+httpEventTypeEnum.name()+"] [errorCode="+errorCode+"] Http error at "+ now;
 	}
 	private static String getErrorMessage(ErrorEnum errorEnum, String fileName, Instant now){
-		return "[ALERT] [error="+errorEnum.name()+"] [fileName"+fileName+"] Http error at "+ now;
+		return "[ALERT] [error="+errorEnum.name()+"] [fileName="+fileName+"] Http error at "+ now;
 	}
 	private static<T> void manageHttpError(Logger logger, HttpEventTypeEnum httpEventTypeEnum, String fileName, String fdr, String pspId, SupplierWithApiException<T> fn){
 		try {
@@ -232,7 +232,7 @@ public class FdrXmlToJson {
 		_sendToErrorTable(logger, now, fileName, fdr, pspId, errorEnum, Optional.empty(),Optional.empty(), Optional.empty(), e);
 	}
 	private static void sendHttpError(Logger logger, Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String httpErrorResposne, String httpErrorCode, Exception e){
-		_sendToErrorTable(logger, now, fileName, fdr, pspId, errorEnum, Optional.of(httpEventTypeEnum), Optional.of(httpErrorResposne), Optional.of(httpErrorCode), e);
+		_sendToErrorTable(logger, now, fileName, fdr, pspId, errorEnum, Optional.ofNullable(httpEventTypeEnum), Optional.ofNullable(httpErrorResposne), Optional.of(httpErrorCode), e);
 	}
 	private static void _sendToErrorTable(Logger logger, Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, Optional<HttpEventTypeEnum> httpEventTypeEnum, Optional<String> httpErrorResposne, Optional<String> httpErrorCode, Exception e){
 		String id = UUID.randomUUID().toString();
