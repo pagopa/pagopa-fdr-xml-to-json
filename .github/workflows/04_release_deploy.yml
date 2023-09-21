@@ -1,0 +1,146 @@
+name: Release And Deploy
+
+# Controls when the workflow will run
+on:
+  pull_request:
+    branches:
+      - main
+    types: [ closed ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      environment:
+        required: true
+        type: choice
+        description: Select the Environment
+        options:
+          - dev
+          - uat
+          - prod
+      semver:
+        required: false
+        type: choice
+        description: Select the version
+        options:
+          - ''
+          - skip
+          - promote
+          - patch
+          - new_release
+          - breaking_change
+
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      semver:
+        required: true
+        type: string
+        default: skip
+
+permissions:
+  packages: write
+  contents: write
+  issues: write
+  id-token: write
+  actions: read
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    outputs:
+      semver: ${{ steps.semver_setup.outputs.semver }}
+      environment: ${{ steps.semver_setup.outputs.environment }}
+      resource_group: ${{ steps.get_rg.outputs.resource_group }}
+      app_name: ${{ steps.get_appname.outputs.app_name }}
+    steps:
+      - name: Semver setup
+        id: semver_setup
+        uses: pagopa/github-actions-template/node-semver-setup@a1b72480e9ac555364be0b7ecdcc8f5ab1c89ad9
+        with:
+          semver: ${{ inputs.semver }}
+
+      # Set deploy variables
+      - run: echo "ENV_SHORT=$(echo ${{steps.semver_setup.outputs.environment}} | cut -c1-1)" >>  $GITHUB_ENV
+
+      - id: get_rg
+        name: Set Resource Group
+        run: echo "resource_group=pagopa-${{env.ENV_SHORT}}-weu-fdr-rg" >> $GITHUB_OUTPUT
+
+      - id: get_appname
+        name: Set App Name
+        run: echo "app_name=pagopa-${{env.ENV_SHORT}}-weu-fdr-xml-to-json-fn" >> $GITHUB_OUTPUT
+
+  release:
+    name: Create a New Release
+    runs-on: ubuntu-latest
+    needs: [setup]
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      registry_image: ${{ steps.get_image.outputs.registry_image }}
+    steps:
+      - name: Make Release
+        id: release
+        uses: pagopa/github-actions-template/maven-release@main
+        with:
+          semver: ${{ needs.setup.outputs.semver }}
+          github_token: ${{ secrets.BOT_TOKEN_GITHUB }}
+          beta: false
+
+      - name: Set image name from container registry
+        id: get_image
+        run: echo "registry_image=ghcr.io/pagopa/pagopa-fdr-xml-to-json:${{steps.release.outputs.version}}" >> $GITHUB_OUTPUT
+
+  build-and-push:
+    name: Build and Push Docker Image
+    needs: [ setup, release ]
+    runs-on: ubuntu-latest
+    if: ${{ needs.setup.outputs.semver != 'skip' }}
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+      - name: Build and Push
+        id: semver
+        uses: pagopa/github-actions-template/ghcr-build-push@v1.5.4
+        with:
+          branch: ${{ github.ref_name}}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.release.outputs.version }}
+
+  deploy_azure_fn:
+    name: Deploy Azure function
+    needs: [ setup, release, build-and-push ]
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    strategy:
+      matrix:
+        environment: [ dev, uat, prod ]
+    secrets: inherit
+    uses: ./.github/workflows/04_self_hosted.yml
+    with:
+      environment: ${{ matrix.environment }}
+      target: ${{ needs.setup.outputs.environment }}
+      resource_group: ${{ needs.setup.outputs.resource_group }}
+      app_name: ${{ needs.setup.outputs.app_name }}
+      registry_image: ${{ needs.release.outputs.registry_image }}
+
+  notify:
+    name: Notify
+    needs: [ setup, release, deploy_azure_fn ]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Report Status
+        if: always()
+        uses: ravsamhq/notify-slack-action@v2
+        with:
+          status: ${{ needs.deploy_azure_fn.result }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          notification_title: 'New Release on ${{ needs.setup.outputs.environment }} for ${{ needs.release.outputs.version }} has {status_message}'
+          message_format: '{emoji} <{run_url}|{workflow}> {status_message} in <{repo_url}|{repo}>'
+          footer: 'Linked to <{workflow_url}| workflow file>'
+          icon_success: ':white_check_mark:'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
