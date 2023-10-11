@@ -60,7 +60,7 @@ jobs:
     steps:
       - name: Semver setup
         id: semver_setup
-        uses: pagopa/github-actions-template/node-semver-setup@a1b72480e9ac555364be0b7ecdcc8f5ab1c89ad9
+        uses: pagopa/github-actions-template/nodo5-semver-setup@ce252c8501c9242bd6045f7cdd650736b2f38777
         with:
           semver: ${{ inputs.semver }}
 
