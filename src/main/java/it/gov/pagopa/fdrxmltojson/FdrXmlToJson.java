@@ -339,6 +339,7 @@ public class FdrXmlToJson {
 
 	private Element searchNodeByName(Node node, String elementToSearch) {
 		NodeList nodeList = node.getChildNodes();
+		Element elementFound = null;
 		for (int i = 0; i < nodeList.getLength(); i++) {
 			Node currentode = nodeList.item(i);
 			if (currentode.getNodeType() == Node.ELEMENT_NODE) {
@@ -346,7 +347,10 @@ public class FdrXmlToJson {
 				if(element.getTagName().endsWith(elementToSearch)){
 					return element;
 				} else {
-					return searchNodeByName(element, elementToSearch);
+					elementFound = searchNodeByName(element, elementToSearch);
+					if(elementFound!=null){
+						return elementFound;
+					}
 				}
 			}
 		}
