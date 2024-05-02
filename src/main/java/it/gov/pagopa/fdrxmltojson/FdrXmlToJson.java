@@ -77,6 +77,7 @@ public class FdrXmlToJson {
 		payStatusMap.put("0", PaymentStatusEnum.EXECUTED);
 		payStatusMap.put("3", PaymentStatusEnum.REVOKED);
 		payStatusMap.put("4", PaymentStatusEnum.STAND_IN);
+		payStatusMap.put("8", PaymentStatusEnum.STAND_IN_NO_RPT);
 		payStatusMap.put("9", PaymentStatusEnum.NO_RPT);
 	}
 
