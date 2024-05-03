@@ -5,7 +5,7 @@
 
     <groupId>it.gov.pagopa</groupId>
     <artifactId>fdrxmltojson</artifactId>
-    <version>0.1.1-2-NOD-861-rivedere-function-fdr</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>FDR XML to JSON Fn</name>
