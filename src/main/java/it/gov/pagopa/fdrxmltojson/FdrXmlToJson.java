@@ -4,7 +4,6 @@ import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableServiceClient;
 import com.azure.data.tables.TableServiceClientBuilder;
 import com.azure.data.tables.models.TableEntity;
-import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
@@ -39,6 +38,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -76,6 +76,8 @@ public class FdrXmlToJson {
 
 		payStatusMap.put("0", PaymentStatusEnum.EXECUTED);
 		payStatusMap.put("3", PaymentStatusEnum.REVOKED);
+		payStatusMap.put("4", PaymentStatusEnum.STAND_IN);
+		payStatusMap.put("8", PaymentStatusEnum.STAND_IN_NO_RPT);
 		payStatusMap.put("9", PaymentStatusEnum.NO_RPT);
 	}
 
@@ -259,20 +261,22 @@ public class FdrXmlToJson {
 
 	private List<AddPaymentRequest> getAddPaymentRequestListPartioned(List<CtDatiSingoliPagamenti> datiSingoliPagamentiList, int size){
 		List<List<CtDatiSingoliPagamenti>> datiSingoliPagamentiPartitioned = Lists.partition(datiSingoliPagamentiList, size);
+		AtomicInteger index = new AtomicInteger(1);
 		return datiSingoliPagamentiPartitioned.stream()
 				.map(datiSingoliPagamentiListPartion -> {
 					AddPaymentRequest addPaymentRequest = new AddPaymentRequest();
 					addPaymentRequest.setPayments(datiSingoliPagamentiListPartion
 							.stream()
-							.map(this::getPayment)
+							.map(v -> getPayment(v, index.getAndIncrement()))
 							.collect(Collectors.toList()));
 					return addPaymentRequest;
 				})
 				.collect(Collectors.toList());
 	}
-	private Payment getPayment(CtDatiSingoliPagamenti ctDatiSingoliPagamenti){
+	private Payment getPayment(CtDatiSingoliPagamenti ctDatiSingoliPagamenti, int index){
 		Payment payment = new Payment();
-		payment.setIndex(ctDatiSingoliPagamenti.getIndiceDatiSingoloPagamento().longValue());
+		payment.setIndex((long) index);
+		payment.setIdTransfer(ctDatiSingoliPagamenti.getIndiceDatiSingoloPagamento().longValue());
 		payment.setIuv(ctDatiSingoliPagamenti.getIdentificativoUnivocoVersamento());
 		payment.setIur(ctDatiSingoliPagamenti.getIdentificativoUnivocoRiscossione());
 		payment.setPay(ctDatiSingoliPagamenti.getSingoloImportoPagato().doubleValue());
