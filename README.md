@@ -18,8 +18,10 @@ The function aims to dump RE sent via Azure Event Hub to a CosmosDB, with a TTL 
 
 ## Run locally with Maven
 
+In order to autogenerate the required classes, please run the command:  
 `mvn clean package`
 
+In order to test the Azure Function in local environment, please run the command:
 `mvn azure-functions:run`
 
 ### Test
