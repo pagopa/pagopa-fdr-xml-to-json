@@ -112,8 +112,16 @@ public class FdrXmlToJson {
 		return blobContainerClient;
 	}
 
+	/*
+	Executing this Azure Function in exponential retry, with time:
+	- retry 0: 0
+	- retry 1: 10s
+	- retry 2: 20s
+	- retry 3: 40s
+	- ...
+	 */
     @FunctionName("BlobFdrXmlToJsonEventProcessor")
-	@ExponentialBackoffRetry(maxRetryCount = 5, maximumInterval = "00:15:00", minimumInterval = "00:00:10")
+	@ExponentialBackoffRetry(maxRetryCount = 10, maximumInterval = "01:30:00", minimumInterval = "00:00:10")
     public void processNodoReEvent (
 			@BlobTrigger(
 					name = "xmlTrigger",
