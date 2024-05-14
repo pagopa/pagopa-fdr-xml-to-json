@@ -1,7 +1,7 @@
 # pagoPA Functions fdr-xml-to-json-fn
 
 Java fdr-re-to-datastore Azure Function.
-The function aims to dump RE sent via Azure Event Hub to a CosmosDB, with a TTL of 120 days, and to an Azure Table Storage with a TTL of 10 years.
+The function aims to convert FdR reports from XML format to JSON format.
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=pagopa_pagopa-fdr-re-to-datastore&metric=alert_status)](https://sonarcloud.io/dashboard?id=pagopa_pagopa-fdr-re-to-datastore)
 

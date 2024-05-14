@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
  */
 public class FdrXmlToJson {
 
-	private static final Integer MAX_RETRY_COUNT = 5;
+	private static final Integer MAX_RETRY_COUNT = 10;
 	private static final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
 
 
@@ -113,7 +113,7 @@ public class FdrXmlToJson {
 	}
 
 	/*
-	Executing this Azure Function in exponential retry, with time:
+	Executing this Azure Function in exponential retry, with steps:
 	- retry 0: 0
 	- retry 1: 10s
 	- retry 2: 20s
@@ -144,7 +144,7 @@ public class FdrXmlToJson {
 		String fdrBk = null;
 		String pspIdBk = null;
 		try {
-			logger.log(Level.INFO, () -> String.format("Performing blob processing: InvocationId [%s], Retry Attempt [%d], File name: %s", context.getInvocationId(), retryIndex, fileName));
+			logger.log(Level.INFO, () -> String.format("Performing blob processing: InvocationId [%s], Retry Attempt [%d], File name: [%s]", context.getInvocationId(), retryIndex, fileName));
 
 			// read xml
 			Document document = loadXMLString(content);
@@ -162,7 +162,7 @@ public class FdrXmlToJson {
 			CreateRequest createRequest = getCreateRequest(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento);
 
 			// call create FDR
-			manageHttpError(logger, HttpEventTypeEnum.INTERNAL_CREATE, fileName, fdr, pspId, () ->
+			manageHttpError(HttpEventTypeEnum.INTERNAL_CREATE, fileName, fdr, pspId, () ->
 				getPspApi().internalCreate(fdr, pspId, createRequest)
 			);
 
@@ -172,13 +172,13 @@ public class FdrXmlToJson {
 			List<AddPaymentRequest> addPaymentRequestList = getAddPaymentRequestListPartioned(datiSingoliPagamenti, partitionSize);
 			// call addPayment FDR for every partition
 			for(AddPaymentRequest addPaymentRequest : addPaymentRequestList) {
-				manageHttpError(logger, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, fileName, fdr, pspId, () ->
+				manageHttpError(HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, fileName, fdr, pspId, () ->
 					getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest)
 				);
 			}
 
 			// call publish FDR
-			manageHttpError(logger, HttpEventTypeEnum.INTERNAL_PUBLISH, fileName, fdr, pspId, () ->
+			manageHttpError(HttpEventTypeEnum.INTERNAL_PUBLISH, fileName, fdr, pspId, () ->
 				getPspApi().internalPublish(fdr, pspId)
 			);
 
@@ -188,7 +188,7 @@ public class FdrXmlToJson {
 			} catch (Exception e) {
 				Instant now = Instant.now();
 				ErrorEnum error = ErrorEnum.DELETE_BLOB_ERROR;
-				sendGenericError(logger, now, fileName, fdr, pspId, error, e);
+				sendGenericError(now, fileName, fdr, pspId, error, e);
 
 				isPersistenceOk = false;
 				errorCause = getErrorMessage(error, fileName, now);
@@ -203,7 +203,7 @@ public class FdrXmlToJson {
 		} catch (Exception e) {
 			Instant now = Instant.now();
 			ErrorEnum error = ErrorEnum.GENERIC_ERROR;
-			sendGenericError(logger, now, fileName, fdrBk, pspIdBk, error, e);
+			sendGenericError(now, fileName, fdrBk, pspIdBk, error, e);
 
 			isPersistenceOk = false;
 			errorCause = getErrorMessage(error, fileName, now);
@@ -234,7 +234,7 @@ public class FdrXmlToJson {
 	private static String getErrorMessage(ErrorEnum errorEnum, String fileName, Instant now){
 		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"] [fileName="+fileName+"] Http error at "+ now;
 	}
-	private static<T> void manageHttpError(Logger logger, HttpEventTypeEnum httpEventTypeEnum, String fileName, String fdr, String pspId, SupplierWithApiException<T> fn){
+	private static<T> void manageHttpError(HttpEventTypeEnum httpEventTypeEnum, String fileName, String fdr, String pspId, SupplierWithApiException<T> fn){
 		try {
 			fn.get();
 		} catch (ApiException e) {
@@ -248,18 +248,18 @@ public class FdrXmlToJson {
 			Instant now = Instant.now();
 			ErrorEnum error = ErrorEnum.HTTP_ERROR;
 			String message = getHttpErrorMessage(error, fileName, httpEventTypeEnum, errorCode, now);
-			sendHttpError(logger, now, fileName, fdr, pspId, error, httpEventTypeEnum, errorResposne, errorCode, e);
+			sendHttpError(now, fileName, fdr, pspId, error, httpEventTypeEnum, errorResposne, errorCode, e);
 			throw new AppException(message, e);
 		}
 	}
 
-	private static void sendGenericError(Logger logger, Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, Exception e){
-		_sendToErrorTable(logger, now, fileName, fdr, pspId, errorEnum, Optional.empty(),Optional.empty(), Optional.empty(), e);
+	private static void sendGenericError(Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, Exception e){
+		_sendToErrorTable(now, fileName, fdr, pspId, errorEnum, Optional.empty(),Optional.empty(), Optional.empty(), e);
 	}
-	private static void sendHttpError(Logger logger, Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String httpErrorResposne, String httpErrorCode, Exception e){
-		_sendToErrorTable(logger, now, fileName, fdr, pspId, errorEnum, Optional.ofNullable(httpEventTypeEnum), Optional.ofNullable(httpErrorResposne), Optional.of(httpErrorCode), e);
+	private static void sendHttpError(Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String httpErrorResposne, String httpErrorCode, Exception e){
+		_sendToErrorTable(now, fileName, fdr, pspId, errorEnum, Optional.ofNullable(httpEventTypeEnum), Optional.ofNullable(httpErrorResposne), Optional.of(httpErrorCode), e);
 	}
-	private static void _sendToErrorTable(Logger logger, Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, Optional<HttpEventTypeEnum> httpEventTypeEnum, Optional<String> httpErrorResposne, Optional<String> httpErrorCode, Exception e){
+	private static void _sendToErrorTable(Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, Optional<HttpEventTypeEnum> httpEventTypeEnum, Optional<String> httpErrorResposne, Optional<String> httpErrorCode, Exception e){
 		String id = UUID.randomUUID().toString();
 		Map<String,Object> errorMap = new LinkedHashMap<>();
 		errorMap.put(AppConstant.columnFieldId, id);
