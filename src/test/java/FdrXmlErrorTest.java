@@ -6,16 +6,16 @@ import it.gov.pagopa.fdrxmltojson.FdrXmlError;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.openapitools.client.api.InternalPspApi;
 import util.TestUtil;
 
 import java.util.*;
 import java.util.logging.Logger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,6 +32,7 @@ public class FdrXmlErrorTest {
     final HttpRequestMessage<Optional<String>> request = mock(HttpRequestMessage.class);
     final HttpResponseMessage.Builder builder = mock(HttpResponseMessage.Builder.class);
 
+
     @Test
     @SneakyThrows
     void runOk_withoutAdditionalProperties() {
@@ -45,12 +46,13 @@ public class FdrXmlErrorTest {
 
         TableServiceClientBuilder tableServiceClientBuilder = mock(TableServiceClientBuilder.class);
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
+        when(tableServiceClientBuilder.connectionString(anyString())).thenReturn(tableServiceClientBuilder);
         when(tableServiceClientBuilder.buildClient()).thenReturn(tableServiceClient);
 
         OutputBinding<List<Object>> document = (OutputBinding<List<Object>>) mock(OutputBinding.class);
 
         // generating input
-        String eventInStringForm = "";//TestUtil.readStringFromFile("events/event_ok_1.json");
+        String eventInStringForm = TestUtil.readStringFromFile("events/event_ok_1.json");
         List<String> events = new ArrayList<>();
         events.add(eventInStringForm);
         Map<String, Object>[] properties = new HashMap[1];

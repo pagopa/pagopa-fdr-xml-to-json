@@ -69,6 +69,12 @@
             <version>4.3.1</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <version>4.3.1</version>
+            <scope>test</scope>
+        </dependency>
 
 
         <!-- resteasy START -->
@@ -364,9 +370,7 @@
             <plugin>
                 <groupId>org.openapitools</groupId>
                 <artifactId>openapi-generator-maven-plugin</artifactId>
-                <!-- RELEASE_VERSION -->
-                <version>6.6.0</version>
-                <!-- /RELEASE_VERSION -->
+                <version>7.4.0</version>
                 <executions>
                     <execution>
                         <goals>
@@ -375,6 +379,8 @@
                         <configuration>
                             <inputSpec>${project.basedir}/src/main/openapi/openapi_internal.json</inputSpec>
                             <generatorName>java</generatorName>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
                         </configuration>
                     </execution>
                 </executions>

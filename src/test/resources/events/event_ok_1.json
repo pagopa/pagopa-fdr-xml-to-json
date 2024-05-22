@@ -1,0 +1,25 @@
+{
+  "id": "uuid-001",
+  "version": "2",
+  "debtorPosition": {
+    "modelType": "2",
+    "noticeNumber": "302040000090000000",
+    "amount": "50.00"
+  },
+  "creditor": {
+    "idPA": "77777777777",
+    "ccPost": "777777777777",
+    "idBrokerPA": "77777777777",
+    "idStation": "77777777777_01"
+  },
+  "psp": {
+    "idPsp": "88888888888",
+    "idBrokerPsp": "88888888888",
+    "idChannel": "88888888888_01"
+  },
+  "faultBean": {
+    "faultCode": "PPT_STAZIONE_INT_PA_ERRORE_RESPONSE",
+    "description": "EC service error at 2023-01-01T12:00:00",
+    "timestamp": "2023-12-12T18:34:39.860654"
+  }
+}
