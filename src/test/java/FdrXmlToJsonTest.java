@@ -20,8 +20,6 @@ import org.powermock.reflect.Whitebox;
 import util.TestUtil;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.UUID;
@@ -30,7 +28,7 @@ import java.util.logging.Logger;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class FdrXmlToJsonTest {
+class FdrXmlToJsonTest {
 
     @Spy
     FdrXmlToJson fdrXmlToJson;
@@ -40,16 +38,6 @@ public class FdrXmlToJsonTest {
 
     private static final Logger logger = Logger.getLogger("FdrXmlToJson-test-logger");
 
-    static void setFinalStatic(Field field, Object newValue) throws Exception {
-        field.setAccessible(true);
-        Field modifiersField = Field.class.getDeclaredField("modifiers");
-        modifiersField.setAccessible(true);
-        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
-        field.set(null, newValue);
-    }
-
-
-
     @Test
     @SneakyThrows
     void runOk_withoutAdditionalProperties() {
@@ -58,9 +46,7 @@ public class FdrXmlToJsonTest {
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient", tableServiceClient);
-//        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
         Whitebox.setInternalState(FdrXmlToJson.class, "tableName", "errors");
-//        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
 
         BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
         BlobClient blobClient = mock(BlobClient.class);
