@@ -16,6 +16,7 @@ import org.openapitools.client.ApiException;
 import org.openapitools.client.api.InternalPspApi;
 import org.openapitools.client.model.ErrorResponse;
 import org.openapitools.client.model.GenericResponse;
+import org.powermock.reflect.Whitebox;
 import util.TestUtil;
 
 import java.io.IOException;
@@ -56,20 +57,22 @@ public class FdrXmlToJsonTest {
         when(context.getLogger()).thenReturn(logger);
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient", tableServiceClient);
+//        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableName", "errors");
+//        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
 
         BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
         BlobClient blobClient = mock(BlobClient.class);
         when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("blobContainerClient"), blobContainerClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient", blobContainerClient);
 
         // generating input
         String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
         InternalPspApi pspApi = mock(InternalPspApi.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("pspApi"), pspApi);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("addPaymentRequestPartitionSize"), "10");
+        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi", pspApi);
+        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize", "10");
 
         GenericResponse genericResponse = new GenericResponse();
         genericResponse.setMessage("OK");
@@ -92,20 +95,20 @@ public class FdrXmlToJsonTest {
         when(context.getLogger()).thenReturn(logger);
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient",  tableServiceClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableName",  "errors");
 
         BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
         BlobClient blobClient = mock(BlobClient.class);
         when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("blobContainerClient"), blobContainerClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient",  blobContainerClient);
 
         // generating input
         String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
         InternalPspApi pspApi = mock(InternalPspApi.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("pspApi"), pspApi);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("addPaymentRequestPartitionSize"), "10");
+        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi",  pspApi);
+        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize",  "10");
 
         GenericResponse genericResponse = new GenericResponse();
         genericResponse.setMessage("OK");
@@ -113,7 +116,7 @@ public class FdrXmlToJsonTest {
         when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
         when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
 
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("MAX_RETRY_COUNT"), -1);
+        Whitebox.setInternalState(FdrXmlToJson.class, "MAX_RETRY_COUNT",  -1);
         // execute logic
         fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context);
 
@@ -129,15 +132,15 @@ public class FdrXmlToJsonTest {
         when(context.getLogger()).thenReturn(logger);
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient",  tableServiceClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableName",  "errors");
 
         // generating input
         String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
         InternalPspApi pspApi = mock(InternalPspApi.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("pspApi"), pspApi);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("addPaymentRequestPartitionSize"), "10");
+        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi",  pspApi);
+        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize",  "10");
 
         GenericResponse genericResponse = new GenericResponse();
         genericResponse.setMessage("OK");
@@ -145,7 +148,7 @@ public class FdrXmlToJsonTest {
         when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
         when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
 
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("MAX_RETRY_COUNT"), -1);
+        Whitebox.setInternalState(FdrXmlToJson.class, "MAX_RETRY_COUNT",  -1);
         // execute logic
         Assertions.assertThrows(Exception.class,
                 () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
@@ -164,18 +167,18 @@ public class FdrXmlToJsonTest {
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         TableClient tableClient = mock(TableClient.class);
         when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient",  tableServiceClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableName",  "errors");
 
         BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("blobContainerClient"), blobContainerClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient",  blobContainerClient);
 
         // generating input
         String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
         InternalPspApi pspApi = mock(InternalPspApi.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("pspApi"), pspApi);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("addPaymentRequestPartitionSize"), "10");
+        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi",  pspApi);
+        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize",  "10");
 
         GenericResponse genericResponse = new GenericResponse();
         genericResponse.setMessage("OK");
@@ -199,24 +202,24 @@ public class FdrXmlToJsonTest {
         when(context.getLogger()).thenReturn(logger);
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient",  tableServiceClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableName",  "errors");
 
         BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
         BlobClient blobClient = mock(BlobClient.class);
         when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("blobContainerClient"), blobContainerClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient",  blobContainerClient);
 
         // generating input
         String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
         InternalPspApi pspApi = mock(InternalPspApi.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("pspApi"), pspApi);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("addPaymentRequestPartitionSize"), "10");
+        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi",  pspApi);
+        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize",  "10");
 
         when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(null);
 
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("MAX_RETRY_COUNT"), -1);
+        Whitebox.setInternalState(FdrXmlToJson.class, "MAX_RETRY_COUNT",  -1);
         // execute logic
         fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context);
 
@@ -234,18 +237,18 @@ public class FdrXmlToJsonTest {
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         TableClient tableClient = mock(TableClient.class);
         when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient",  tableServiceClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableName",  "errors");
 
         BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("blobContainerClient"), blobContainerClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient",  blobContainerClient);
 
         // generating input
         String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
         InternalPspApi pspApi = mock(InternalPspApi.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("pspApi"), pspApi);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("addPaymentRequestPartitionSize"), "10");
+        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi",  pspApi);
+        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize",  "10");
 
         mockStatic(ErrorResponse.class);
         when(ErrorResponse.fromJson(anyString())).thenThrow(IOException.class);
@@ -269,18 +272,18 @@ public class FdrXmlToJsonTest {
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         TableClient tableClient = mock(TableClient.class);
         when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient", tableServiceClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "tableName", "errors");
 
         BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("blobContainerClient"), blobContainerClient);
+        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient", blobContainerClient);
 
         // generating input
         String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
         InternalPspApi pspApi = mock(InternalPspApi.class);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("pspApi"), pspApi);
-        setFinalStatic(FdrXmlToJson.class.getDeclaredField("addPaymentRequestPartitionSize"), "10");
+        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi", pspApi);
+        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize", "10");
 
         when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(new ApiException(400, "", new HashMap<>(), "{ \"error\": \"OK\" }"));
 
