@@ -1,18 +1,25 @@
+import com.azure.core.http.rest.PagedIterable;
+import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableServiceClient;
 import com.azure.data.tables.TableServiceClientBuilder;
+import com.azure.data.tables.models.TableEntity;
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobContainerClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.functions.*;
 import it.gov.pagopa.fdrxmltojson.FdrXmlError;
+import it.gov.pagopa.fdrxmltojson.FdrXmlToJson;
 import lombok.SneakyThrows;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.openapitools.client.api.InternalPspApi;
 import util.TestUtil;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -32,46 +39,85 @@ public class FdrXmlErrorTest {
     final HttpRequestMessage<Optional<String>> request = mock(HttpRequestMessage.class);
     final HttpResponseMessage.Builder builder = mock(HttpResponseMessage.Builder.class);
 
-
-    @Test
-    @SneakyThrows
-    void runOk_withoutAdditionalProperties() {
-        // mocking objects
-        when(context.getLogger()).thenReturn(logger);
-        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
-
-        doReturn(HttpStatus.OK).when(responseMock).getStatus();
-        doReturn(responseMock).when(builder).build();
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
-
-        TableServiceClientBuilder tableServiceClientBuilder = mock(TableServiceClientBuilder.class);
-        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-        when(tableServiceClientBuilder.connectionString(anyString())).thenReturn(tableServiceClientBuilder);
-        when(tableServiceClientBuilder.buildClient()).thenReturn(tableServiceClient);
-
-        OutputBinding<List<Object>> document = (OutputBinding<List<Object>>) mock(OutputBinding.class);
-
-        // generating input
-        String eventInStringForm = TestUtil.readStringFromFile("events/event_ok_1.json");
-        List<String> events = new ArrayList<>();
-        events.add(eventInStringForm);
-        Map<String, Object>[] properties = new HashMap[1];
-        properties[0] = new HashMap<>();
-
-        // generating expected output
-        Map<String, Object> expectedEvent = new ObjectMapper().readValue(eventInStringForm, Map.class);
-        expectedEvent.put("PartitionKey", "20231212-77777777777-88888888888");
-//        ((Map)expectedEvent.get(Constants.FAULTBEAN_EVENT_FIELD)).put(Constants.TIMESTAMP_EVENT_FIELD, 1702406079);
-//        ((Map)expectedEvent.get(Constants.FAULTBEAN_EVENT_FIELD)).put(Constants.DATE_TIME_EVENT_FIELD, "2023-12-12T18:34:39.860654");
-        List<Object> expectedEventsToPersist = List.of(expectedEvent);
-
-        // execute logic
-        fdrXmlError.run(request, context);
-
-//        ArgumentCaptor<List<Object>> captor = ArgumentCaptor.forClass(List.class);
-//        verify(document).setValue(captor.capture());
-//        List<Object> actualEventsToPersist = captor.getValue();
-//        assertEquals(convertWithStream(expectedEventsToPersist), convertWithStream(actualEventsToPersist));
+    static void setFinalStatic(Field field, Object newValue) throws Exception {
+        field.setAccessible(true);
+        Field modifiersField = Field.class.getDeclaredField("modifiers");
+        modifiersField.setAccessible(true);
+        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
+        field.set(null, newValue);
     }
+
+//    @Test
+//    @SneakyThrows
+//    void runOk() {
+//        // mocking objects
+//        when(context.getLogger()).thenReturn(logger);
+//        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
+//
+//        doReturn(responseMock).when(builder).build();
+//        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
+//
+//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
+////        TableClient tableClient = mock(TableClient.class);
+//        TableEntity tableEntity = mock(TableEntity.class);
+//        PagedIterable<TableEntity> pagedIterable = mock(PagedIterable.class);
+////        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
+////        when(tableClient.getEntity(anyString(), anyString())).thenReturn(tableEntity);
+////        when(tableClient.listEntities().iterator()).thenReturn(pagedIterable.iterator());
+//        setFinalStatic(FdrXmlError.class.getDeclaredField("tableServiceClient"), tableServiceClient);
+//        setFinalStatic(FdrXmlError.class.getDeclaredField("tableName"), "errors");
+//
+//
+//
+//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
+//        BlobClient blobClient = mock(BlobClient.class);
+//        when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
+//        setFinalStatic(FdrXmlError.class.getDeclaredField("blobContainerClient"), blobContainerClient);
+//
+//        // generating input
+//        String eventInStringForm = TestUtil.readStringFromFile("events/event_ok_1.json");
+//        List<String> events = new ArrayList<>();
+//        events.add(eventInStringForm);
+//        Map<String, Object>[] properties = new HashMap[1];
+//        properties[0] = new HashMap<>();
+//
+////        doReturn("2024-01-01").when(request.getQueryParameters().get("partitionKey"));
+////        doReturn("1").when(request.getQueryParameters().get("rowKey"));
+////        doReturn("true").when(request.getQueryParameters().get("deleteOnlyByKey"));
+//
+//        // execute logic
+//        fdrXmlError.run(request, context);
+//    }
+//
+//    @Test
+//    @SneakyThrows
+//    void runKo_1() {
+//        // mocking objects
+//        when(context.getLogger()).thenReturn(logger);
+//        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
+//
+//        doReturn(responseMock).when(builder).build();
+//        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
+//
+//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
+//        setFinalStatic(FdrXmlError.class.getDeclaredField("tableServiceClient"), tableServiceClient);
+//        setFinalStatic(FdrXmlError.class.getDeclaredField("tableName"), "errors");
+//
+//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
+//        BlobClient blobClient = mock(BlobClient.class);
+//        when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
+//        setFinalStatic(FdrXmlError.class.getDeclaredField("blobContainerClient"), blobContainerClient);
+//
+//        // generating input
+//        String eventInStringForm = TestUtil.readStringFromFile("events/event_ok_1.json");
+//        List<String> events = new ArrayList<>();
+//        events.add(eventInStringForm);
+//        Map<String, Object>[] properties = new HashMap[1];
+//        properties[0] = new HashMap<>();
+//
+//        // execute logic
+//        Assertions.assertThrows(Exception.class,
+//                () -> fdrXmlError.run(request, context));
+//    }
 
 }

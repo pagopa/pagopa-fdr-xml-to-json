@@ -6,6 +6,7 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
+import it.gov.pagopa.fdrxmltojson.AppException;
 import it.gov.pagopa.fdrxmltojson.FdrXmlToJson;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
@@ -20,11 +21,11 @@ import org.openapitools.client.model.ErrorResponse;
 import org.openapitools.client.model.GenericResponse;
 import util.TestUtil;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -238,11 +239,7 @@ public class FdrXmlToJsonTest {
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("pspApi"), pspApi);
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("addPaymentRequestPartitionSize"), "10");
 
-//        GenericResponse genericResponse = new GenericResponse();
-//        genericResponse.setMessage("OK");
         when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(null);
-//        when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
 
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("MAX_RETRY_COUNT"), -1);
         // execute logic
@@ -255,7 +252,7 @@ public class FdrXmlToJsonTest {
 
     @Test
     @SneakyThrows
-    void runKo_pspHttpError2() {
+    void runKo_pspErrorResponse() {
         // mocking objects
         when(context.getLogger()).thenReturn(logger);
         HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
@@ -270,8 +267,6 @@ public class FdrXmlToJsonTest {
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
 
         BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-        BlobClient blobClient = mock(BlobClient.class);
-        when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("blobContainerClient"), blobContainerClient);
 
         // generating input
@@ -281,21 +276,53 @@ public class FdrXmlToJsonTest {
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("pspApi"), pspApi);
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("addPaymentRequestPartitionSize"), "10");
 
-//        GenericResponse genericResponse = new GenericResponse();
-//        genericResponse.setMessage("OK");
-        ErrorResponse errorResponse = new ErrorResponse();
-        errorResponse.setErrorId(UUID.randomUUID().toString());
-        errorResponse.setHttpStatusCode(400);
-        errorResponse.setAppErrorCode("400");
-        errorResponse.setHttpStatusDescription("");
-        when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(new ApiException(400, "", new HashMap<String, List<String>>(), "KO"));
-//        when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
+        mockStatic(ErrorResponse.class);
+        when(ErrorResponse.fromJson(anyString())).thenThrow(IOException.class);
+
+        when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(new ApiException(400, "", new HashMap<>(), "{ \""));
 
         // execute logic
-        fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context);
+        Assertions.assertThrows(AppException.class,
+                () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
 
-        verify(pspApi, times(0)).internalCreate(anyString(), anyString(), any());
+        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+        verify(pspApi, times(0)).internalAddPayment(anyString(), anyString(), any());
+    }
+
+    @Test
+    @SneakyThrows
+    void runKo_pspErrorResponseMalformed() {
+        // mocking objects
+        when(context.getLogger()).thenReturn(logger);
+        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
+
+        doReturn(responseMock).when(builder).build();
+        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
+
+        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
+        TableClient tableClient = mock(TableClient.class);
+        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
+        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
+        setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableName"), "errors");
+
+        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
+        setFinalStatic(FdrXmlToJson.class.getDeclaredField("blobContainerClient"), blobContainerClient);
+
+        // generating input
+        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+
+        InternalPspApi pspApi = mock(InternalPspApi.class);
+        setFinalStatic(FdrXmlToJson.class.getDeclaredField("pspApi"), pspApi);
+        setFinalStatic(FdrXmlToJson.class.getDeclaredField("addPaymentRequestPartitionSize"), "10");
+
+        when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(new ApiException(400, "", new HashMap<>(), "{ \"error\": \"OK\" }"));
+
+        // execute logic
+        Assertions.assertThrows(AppException.class,
+                () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
+
+        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+        verify(pspApi, times(0)).internalAddPayment(anyString(), anyString(), any());
     }
 
 }
