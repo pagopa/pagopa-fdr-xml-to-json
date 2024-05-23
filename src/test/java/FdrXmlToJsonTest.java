@@ -3,14 +3,10 @@ import com.azure.data.tables.TableServiceClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.microsoft.azure.functions.ExecutionContext;
-import com.microsoft.azure.functions.HttpRequestMessage;
-import com.microsoft.azure.functions.HttpResponseMessage;
-import com.microsoft.azure.functions.HttpStatus;
 import it.gov.pagopa.fdrxmltojson.AppException;
 import it.gov.pagopa.fdrxmltojson.FdrXmlToJson;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -24,10 +20,8 @@ import util.TestUtil;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -46,9 +40,6 @@ public class FdrXmlToJsonTest {
 
     static void setFinalStatic(Field field, Object newValue) throws Exception {
         field.setAccessible(true);
-        Field modifiersField = Field.class.getDeclaredField("modifiers");
-        modifiersField.setAccessible(true);
-        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
         field.set(null, newValue);
     }
 
