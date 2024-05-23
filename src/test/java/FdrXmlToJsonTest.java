@@ -10,6 +10,7 @@ import it.gov.pagopa.fdrxmltojson.AppException;
 import it.gov.pagopa.fdrxmltojson.FdrXmlToJson;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -43,9 +44,6 @@ public class FdrXmlToJsonTest {
 
     private static final Logger logger = Logger.getLogger("FdrXmlToJson-test-logger");
 
-    final HttpRequestMessage<Optional<String>> request = mock(HttpRequestMessage.class);
-    final HttpResponseMessage.Builder builder = mock(HttpResponseMessage.Builder.class);
-
     static void setFinalStatic(Field field, Object newValue) throws Exception {
         field.setAccessible(true);
         Field modifiersField = Field.class.getDeclaredField("modifiers");
@@ -59,10 +57,6 @@ public class FdrXmlToJsonTest {
     void runOk_withoutAdditionalProperties() {
         // mocking objects
         when(context.getLogger()).thenReturn(logger);
-        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
-
-        doReturn(responseMock).when(builder).build();
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
@@ -99,10 +93,6 @@ public class FdrXmlToJsonTest {
     void runKo_maxRetryCount() {
         // mocking objects
         when(context.getLogger()).thenReturn(logger);
-        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
-
-        doReturn(responseMock).when(builder).build();
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
@@ -140,10 +130,6 @@ public class FdrXmlToJsonTest {
     void runKo_errorBlobContainerLoad() {
         // mocking objects
         when(context.getLogger()).thenReturn(logger);
-        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
-
-        doReturn(responseMock).when(builder).build();
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
@@ -177,10 +163,6 @@ public class FdrXmlToJsonTest {
     void runKo_errorBlobContainerDelete() {
         // mocking objects
         when(context.getLogger()).thenReturn(logger);
-        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
-
-        doReturn(responseMock).when(builder).build();
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         TableClient tableClient = mock(TableClient.class);
@@ -218,10 +200,6 @@ public class FdrXmlToJsonTest {
     void runKo_pspHttpError() {
         // mocking objects
         when(context.getLogger()).thenReturn(logger);
-        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
-
-        doReturn(responseMock).when(builder).build();
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         setFinalStatic(FdrXmlToJson.class.getDeclaredField("tableServiceClient"), tableServiceClient);
@@ -255,10 +233,6 @@ public class FdrXmlToJsonTest {
     void runKo_pspErrorResponse() {
         // mocking objects
         when(context.getLogger()).thenReturn(logger);
-        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
-
-        doReturn(responseMock).when(builder).build();
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         TableClient tableClient = mock(TableClient.class);
@@ -294,10 +268,6 @@ public class FdrXmlToJsonTest {
     void runKo_pspErrorResponseMalformed() {
         // mocking objects
         when(context.getLogger()).thenReturn(logger);
-        HttpResponseMessage responseMock = mock(HttpResponseMessage.class);
-
-        doReturn(responseMock).when(builder).build();
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
 
         TableServiceClient tableServiceClient = mock(TableServiceClient.class);
         TableClient tableClient = mock(TableClient.class);
