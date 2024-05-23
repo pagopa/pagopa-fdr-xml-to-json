@@ -1,0 +1,17 @@
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+        <ns5:nodoInviaFlussoRendicontazione xmlns:ns2="http://www.digitpa.gov.it/schemas/2011/Pagamenti/"
+                                            xmlns:ns3="http://PuntoAccessoPSP.spcoop.gov.it/QrCode"
+                                            xmlns:ns4="http://PuntoAccessoPSP.spcoop.gov.it/BarCode_GS1_128_Modified"
+                                            xmlns:ns5="http://ws.pagamenti.telematici.gov/">
+            <identificativoPSP>60000000001</identificativoPSP>
+            <identificativoIntermediarioPSP>60000000001</identificativoIntermediarioPSP>
+            <identificativoCanale>15376371009_04</identificativoCanale>
+            <password>PLACEHOLDER</password>
+            <identificativoDominio>15376371009</identificativoDominio>
+            <identificativoFlusso>2024-05-2160000000001-17163317305</identificativoFlusso>
+            <dataOraFlusso>2024-05-21T01:00:59</dataOraFlusso>
+            <xmlRendicontazione>PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9InllcyI/PjxGbHVzc29SaXZlcnNhbWVudG8geG1sbnM9Imh0dHA6Ly93d3cuZGlnaXRwYS5nb3YuaXQvc2NoZW1hcy8yMDExL1BhZ2FtZW50aS8iPjx2ZXJzaW9uZU9nZ2V0dG8+MS4wPC92ZXJzaW9uZU9nZ2V0dG8+CiAgICA8aWRlbnRpZmljYXRpdm9GbHVzc28+MjAyNC0wNS0yMTYwMDAwMDAwMDAxLTE3MTYzMzE3MzA1PC9pZGVudGlmaWNhdGl2b0ZsdXNzbz4KICAgIDxkYXRhT3JhRmx1c3NvPjIwMjQtMDUtMjFUMDE6MDA6NTk8L2RhdGFPcmFGbHVzc28+CiAgICA8aWRlbnRpZmljYXRpdm9Vbml2b2NvUmVnb2xhbWVudG8+Qm9uaWZpY28gU0VQQS0wMzI2OC05OTk5OTk5OTk5PC9pZGVudGlmaWNhdGl2b1VuaXZvY29SZWdvbGFtZW50bz4KICAgIDxkYXRhUmVnb2xhbWVudG8+MjAyNC0wNS0yMTwvZGF0YVJlZ29sYW1lbnRvPgogICAgPGlzdGl0dXRvTWl0dGVudGU+CiAgICAgICAgPGlkZW50aWZpY2F0aXZvVW5pdm9jb01pdHRlbnRlPgogICAgICAgICAgICA8dGlwb0lkZW50aWZpY2F0aXZvVW5pdm9jbz5CPC90aXBvSWRlbnRpZmljYXRpdm9Vbml2b2NvPgogICAgICAgICAgICA8Y29kaWNlSWRlbnRpZmljYXRpdm9Vbml2b2NvPlNFTEJJVDJCPC9jb2RpY2VJZGVudGlmaWNhdGl2b1VuaXZvY28+CiAgICAgICAgPC9pZGVudGlmaWNhdGl2b1VuaXZvY29NaXR0ZW50ZT4KICAgICAgICA8ZGVub21pbmF6aW9uZU1pdHRlbnRlPkJhbmNhIFNlbGxhPC9kZW5vbWluYXppb25lTWl0dGVudGU+CiAgICA8L2lzdGl0dXRvTWl0dGVudGU+CiAgICA8aXN0aXR1dG9SaWNldmVudGU+CiAgICAgICAgPGlkZW50aWZpY2F0aXZvVW5pdm9jb1JpY2V2ZW50ZT4KICAgICAgICAgICAgPHRpcG9JZGVudGlmaWNhdGl2b1VuaXZvY28+RzwvdGlwb0lkZW50aWZpY2F0aXZvVW5pdm9jbz4KICAgICAgICAgICAgPGNvZGljZUlkZW50aWZpY2F0aXZvVW5pdm9jbz45OTk5OTk5OTk5OTwvY29kaWNlSWRlbnRpZmljYXRpdm9Vbml2b2NvPgogICAgICAgIDwvaWRlbnRpZmljYXRpdm9Vbml2b2NvUmljZXZlbnRlPgogICAgPC9pc3RpdHV0b1JpY2V2ZW50ZT4KICAgIDxudW1lcm9Ub3RhbGVQYWdhbWVudGk+MTwvbnVtZXJvVG90YWxlUGFnYW1lbnRpPgogICAgPGltcG9ydG9Ub3RhbGVQYWdhbWVudGk+MTAuMDA8L2ltcG9ydG9Ub3RhbGVQYWdhbWVudGk+CiAgICA8ZGF0aVNpbmdvbGlQYWdhbWVudGk+CiAgICAgICAgPGlkZW50aWZpY2F0aXZvVW5pdm9jb1ZlcnNhbWVudG8+JHt1dGlscy5zdHJpbmdHZW4oMTQpfTwvaWRlbnRpZmljYXRpdm9Vbml2b2NvVmVyc2FtZW50bz4KICAgICAgICA8aWRlbnRpZmljYXRpdm9Vbml2b2NvUmlzY29zc2lvbmU+JHt1dGlscy5zdHJpbmdHZW4oMTApfTwvaWRlbnRpZmljYXRpdm9Vbml2b2NvUmlzY29zc2lvbmU+CiAgICAgICAgPGluZGljZURhdGlTaW5nb2xvUGFnYW1lbnRvPjE8L2luZGljZURhdGlTaW5nb2xvUGFnYW1lbnRvPgogICAgICAgIDxzaW5nb2xvSW1wb3J0b1BhZ2F0bz4xMC4wMDwvc2luZ29sb0ltcG9ydG9QYWdhdG8+CiAgICAgICAgPGNvZGljZUVzaXRvU2luZ29sb1BhZ2FtZW50bz45PC9jb2RpY2VFc2l0b1NpbmdvbG9QYWdhbWVudG8+CiAgICAgICAgPGRhdGFFc2l0b1NpbmdvbG9QYWdhbWVudG8+MjAxNy0wNy0xNzwvZGF0YUVzaXRvU2luZ29sb1BhZ2FtZW50bz4KICAgIDwvZGF0aVNpbmdvbGlQYWdhbWVudGk+CjwvRmx1c3NvUml2ZXJzYW1lbnRvPg==</xmlRendicontazione>
+        </ns5:nodoInviaFlussoRendicontazione>
+    </soap:Body>
+</soap:Envelope>
