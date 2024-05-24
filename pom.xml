@@ -228,7 +228,6 @@
             <version>3.12.0</version>
         </dependency>
     </dependencies>
-
     <build>
         <plugins>
             <plugin>
@@ -328,7 +327,7 @@
                     <dependency>
                         <groupId>org.junit.jupiter</groupId>
                         <artifactId>junit-jupiter-engine</artifactId>
-                        <version>5.0.1</version>
+                        <version>5.0.3</version>
                     </dependency>
                 </dependencies>
                 <configuration>

@@ -18,7 +18,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
-public class InfoTest {
+class InfoTest {
 
     @Mock
     ExecutionContext context;
