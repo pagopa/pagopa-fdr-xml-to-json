@@ -32,8 +32,8 @@ data "azurerm_key_vault_secret" "key_vault_bot_token" {
   key_vault_id = data.azurerm_key_vault.key_vault.id
 }
 
-data "azurerm_key_vault_secret" "key_vault_slack_webhook_url" {
-  name         = "slack-webhook-url"
+data "azurerm_key_vault_secret" "key_vault_deploy_slack_webhook" {
+  name         = "pagopa-pagamenti-deploy-slack-webhook"
   key_vault_id = data.azurerm_key_vault.domain_key_vault.id
 }
 
