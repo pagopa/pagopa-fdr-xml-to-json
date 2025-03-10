@@ -126,94 +126,99 @@ public class FdrXmlToJson {
 			@BlobTrigger(
 					name = "xmlTrigger",
 					connection = "STORAGE_ACCOUNT_CONN_STRING",
-					path = "xmlsharefile/{fileName}",
+					path = "%BLOB_CONTAINER_NAME%/{fileName}",
 					dataType = "binary") byte[] content,
 			@BindingName("fileName") String fileName,
+			@BindingName("Metadata") Map<String, String> blobMetadata,
 			final ExecutionContext context) {
 
-		String errorCause = null;
-		boolean isPersistenceOk = true;
-		Throwable causedBy = null;
-		int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
+		if (Boolean.parseBoolean(blobMetadata.getOrDefault("elaborate", "false"))) {
+			String sessionId = blobMetadata.getOrDefault("sessionId", "NA");
 
-		Logger logger = context.getLogger();
-		if (retryIndex == MAX_RETRY_COUNT) {
-			logger.log(Level.WARNING, () -> String.format("[ALERT][FdrXmlToJson][LAST_RETRY] Performing last retry for blob processing: InvocationId [%s], File name: %s", context.getInvocationId(), fileName));
-		}
+			String errorCause = null;
+			boolean isPersistenceOk = true;
+			Throwable causedBy = null;
+			int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
-		String fdrBk = null;
-		String pspIdBk = null;
-		try {
-			logger.log(Level.INFO, () -> String.format("Performing blob processing: InvocationId [%s], Retry Attempt [%d], File name: [%s]", context.getInvocationId(), retryIndex, fileName));
-
-			// read xml
-			Document document = loadXMLString(content);
-			Element element = searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
-			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = getInstanceByNode(element, NodoInviaFlussoRendicontazioneRequest.class);
-			CtFlussoRiversamento ctFlussoRiversamento = getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
-
-			// extract pathparam for FDR
-			String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
-			fdrBk = fdr;
-			String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
-			pspIdBk = pspId;
-
-			// create body for create FDR
-			CreateRequest createRequest = getCreateRequest(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento);
-
-			// call create FDR
-			manageHttpError(HttpEventTypeEnum.INTERNAL_CREATE, fileName, fdr, pspId, () ->
-				getPspApi().internalCreate(fdr, pspId, createRequest)
-			);
-
-			// create body for addPayment FDR (partitioned)
-			List<CtDatiSingoliPagamenti> datiSingoliPagamenti = ctFlussoRiversamento.getDatiSingoliPagamenti();
-			int partitionSize = Integer.parseInt(addPaymentRequestPartitionSize);
-			List<AddPaymentRequest> addPaymentRequestList = getAddPaymentRequestListPartioned(datiSingoliPagamenti, partitionSize);
-			// call addPayment FDR for every partition
-			for(AddPaymentRequest addPaymentRequest : addPaymentRequestList) {
-				manageHttpError(HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, fileName, fdr, pspId, () ->
-					getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest)
-				);
+			Logger logger = context.getLogger();
+			if (retryIndex == MAX_RETRY_COUNT) {
+				logger.log(Level.WARNING, () -> String.format("[ALERT][FdrXmlToJson][LAST_RETRY] Performing last retry for blob processing: SessionId [%s], InvocationId [%s], File name: %s",  sessionId, context.getInvocationId(), fileName));
 			}
 
-			// call publish FDR
-			manageHttpError(HttpEventTypeEnum.INTERNAL_PUBLISH, fileName, fdr, pspId, () ->
-				getPspApi().internalPublish(fdr, pspId)
-			);
-
-			// delete BLOB
+			String fdrBk = null;
+			String pspIdBk = null;
 			try {
-				getBlobContainerClient().getBlobClient(fileName).delete();
+				logger.log(Level.INFO, () -> String.format("Performing blob processing: SessionId [%s], InvocationId [%s], Retry Attempt [%d], File name: [%s]", sessionId, context.getInvocationId(), retryIndex, fileName));
+
+				// read xml
+				Document document = loadXMLString(content);
+				Element element = searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
+				NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = getInstanceByNode(element, NodoInviaFlussoRendicontazioneRequest.class);
+				CtFlussoRiversamento ctFlussoRiversamento = getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
+
+				// extract pathparam for FDR
+				String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
+				fdrBk = fdr;
+				String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
+				pspIdBk = pspId;
+
+				// create body for create FDR
+				CreateRequest createRequest = getCreateRequest(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento);
+
+				// call create FDR
+				manageHttpError(HttpEventTypeEnum.INTERNAL_CREATE, fileName, fdr, pspId, () ->
+						getPspApi().internalCreate(fdr, pspId, createRequest)
+				);
+
+				// create body for addPayment FDR (partitioned)
+				List<CtDatiSingoliPagamenti> datiSingoliPagamenti = ctFlussoRiversamento.getDatiSingoliPagamenti();
+				int partitionSize = Integer.parseInt(addPaymentRequestPartitionSize);
+				List<AddPaymentRequest> addPaymentRequestList = getAddPaymentRequestListPartitioned(datiSingoliPagamenti, partitionSize);
+				// call addPayment FDR for every partition
+				for (AddPaymentRequest addPaymentRequest : addPaymentRequestList) {
+					manageHttpError(HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, fileName, fdr, pspId, () ->
+							getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest)
+					);
+				}
+
+				// call publish FDR
+				manageHttpError(HttpEventTypeEnum.INTERNAL_PUBLISH, fileName, fdr, pspId, () ->
+						getPspApi().internalPublish(fdr, pspId)
+				);
+
+				// delete BLOB
+				try {
+					getBlobContainerClient().getBlobClient(fileName).delete();
+				} catch (Exception e) {
+					Instant now = Instant.now();
+					ErrorEnum error = ErrorEnum.DELETE_BLOB_ERROR;
+					sendGenericError(now, fileName, fdr, pspId, error, e);
+
+					isPersistenceOk = false;
+					errorCause = getErrorMessage(error, fileName, now);
+					causedBy = e;
+				}
+
+			} catch (AppException e) {
+				isPersistenceOk = false;
+				errorCause = e.getMessage();
+				causedBy = e;
+
 			} catch (Exception e) {
 				Instant now = Instant.now();
-				ErrorEnum error = ErrorEnum.DELETE_BLOB_ERROR;
-				sendGenericError(now, fileName, fdr, pspId, error, e);
+				ErrorEnum error = ErrorEnum.GENERIC_ERROR;
+				sendGenericError(now, fileName, fdrBk, pspIdBk, error, e);
 
 				isPersistenceOk = false;
 				errorCause = getErrorMessage(error, fileName, now);
 				causedBy = e;
 			}
 
-		} catch (AppException e) {
-			isPersistenceOk = false;
-			errorCause = e.getMessage();
-			causedBy = e;
-
-		} catch (Exception e) {
-			Instant now = Instant.now();
-			ErrorEnum error = ErrorEnum.GENERIC_ERROR;
-			sendGenericError(now, fileName, fdrBk, pspIdBk, error, e);
-
-			isPersistenceOk = false;
-			errorCause = getErrorMessage(error, fileName, now);
-			causedBy = e;
-        }
-
-		if (!isPersistenceOk) {
-			String finalErrorCause = errorCause;
-			logger.log(Level.SEVERE, () -> finalErrorCause);
-			throw new AppException(errorCause, causedBy);
+			if (!isPersistenceOk) {
+				String finalErrorCause = errorCause;
+				logger.log(Level.SEVERE, () -> finalErrorCause);
+				throw new AppException(errorCause, causedBy);
+			}
 		}
     }
 
@@ -281,7 +286,7 @@ public class FdrXmlToJson {
 		tableClient.createEntity(entity);
 	}
 
-	private List<AddPaymentRequest> getAddPaymentRequestListPartioned(List<CtDatiSingoliPagamenti> datiSingoliPagamentiList, int size){
+	private List<AddPaymentRequest> getAddPaymentRequestListPartitioned(List<CtDatiSingoliPagamenti> datiSingoliPagamentiList, int size){
 		List<List<CtDatiSingoliPagamenti>> datiSingoliPagamentiPartitioned = Lists.partition(datiSingoliPagamentiList, size);
 		AtomicInteger index = new AtomicInteger(1);
 		return datiSingoliPagamentiPartitioned.stream()
