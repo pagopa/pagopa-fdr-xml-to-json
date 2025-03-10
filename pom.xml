@@ -9,16 +9,20 @@
     <packaging>jar</packaging>
 
     <name>FDR XML to JSON Fn</name>
+    <description>Convert FdR XML to JSON format</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.version>11</java.version>
-        <azure.functions.maven.plugin.version>1.26.0</azure.functions.maven.plugin.version>
-        <azure.functions.java.library.version>3.0.0</azure.functions.java.library.version>
-        <functionAppName>pagopa-d-weu-fdr-xml-to-json-fn</functionAppName>
-        <resteasy.version>6.2.4.Final</resteasy.version>
-        <org.modelmapper>3.1.1</org.modelmapper>
-        <jackson>2.15.2</jackson>
+        <java.version>17</java.version>
+        <functionAppName>pagopa-fdr-xml-to-json-fn</functionAppName>
+        <azure.functions.maven.plugin.version>1.37.0</azure.functions.maven.plugin.version>
+        <azure.functions.java.library.version>3.1.0</azure.functions.java.library.version>
+        <azure-sdk-bom.version>1.2.32</azure-sdk-bom.version>
+        <resteasy.version>6.2.11.Final</resteasy.version>
+        <modelmapper.version>3.1.1</modelmapper.version>
+        <jackson.version>2.18.2</jackson.version>
+        <mockito.version>5.15.2</mockito.version>
+        <jupiter.version>5.12.0</jupiter.version>
     </properties>
 
     <dependencyManagement>
@@ -26,7 +30,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.13</version>
+                <version>${azure-sdk-bom.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -54,25 +58,19 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.8.2</version>
+            <version>${jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>4.3.1</version>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
-            <version>4.3.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-inline</artifactId>
-            <version>5.2.0</version>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -114,38 +112,38 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>${jackson}</version>
+            <version>${jackson.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson}</version>
+            <version>${jackson.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>${jackson}</version>
+            <version>${jackson.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-xml</artifactId>
-            <version>${jackson}</version>
+            <version>${jackson.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>${jackson}</version>
+            <version>${jackson.version}</version>
         </dependency>
         <!-- Jackson END-->
 
         <dependency>
             <groupId>org.modelmapper</groupId>
             <artifactId>modelmapper</artifactId>
-            <version>${org.modelmapper}</version>
+            <version>${modelmapper.version}</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.projectlombok/lombok -->
