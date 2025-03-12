@@ -9,6 +9,7 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.google.common.collect.Lists;
 import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.ExponentialBackoffRetry;
@@ -16,6 +17,7 @@ import com.microsoft.azure.functions.annotation.FunctionName;
 import it.gov.digitpa.schemas._2011.pagamenti.CtDatiSingoliPagamenti;
 import it.gov.digitpa.schemas._2011.pagamenti.CtFlussoRiversamento;
 import it.gov.digitpa.schemas._2011.pagamenti.StTipoIdentificativoUnivoco;
+import it.gov.pagopa.fdrxmltojson.util.GZipUtil;
 import it.gov.pagopa.pagopa_api.node.nodeforpsp.NodoInviaFlussoRendicontazioneRequest;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBElement;
@@ -37,6 +39,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.stream.StreamSource;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -63,7 +66,7 @@ public class FdrXmlToJson {
 	private static final String storageConnString = System.getenv("STORAGE_ACCOUNT_CONN_STRING");
 	private static final String blobContainerName = System.getenv("BLOB_CONTAINER_NAME");
 
-
+	private static Logger logger;
 
 	private static InternalPspApi pspApi = null;
 	private static TableServiceClient tableServiceClient = null;
@@ -84,7 +87,7 @@ public class FdrXmlToJson {
 		payStatusMap.put("9", PaymentStatusEnum.NO_RPT);
 	}
 
-	private static InternalPspApi getPspApi(){
+	private static InternalPspApi getPspApi() {
 		if(pspApi==null){
 			ApiClient apiClient = new ApiClient();
 			apiClient.setApiKey(fdrNewApiKey);
@@ -140,63 +143,61 @@ public class FdrXmlToJson {
 			Throwable causedBy = null;
 			int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
-			Logger logger = context.getLogger();
+			logger = context.getLogger();
 			if (retryIndex == MAX_RETRY_COUNT) {
 				logger.log(Level.WARNING, () -> String.format("[ALERT][FdrXmlToJson][LAST_RETRY] Performing last retry for blob processing: SessionId [%s], InvocationId [%s], File name: %s",  sessionId, context.getInvocationId(), fileName));
 			}
 
 			String fdrBk = null;
 			String pspIdBk = null;
+
 			try {
 				logger.log(Level.INFO, () -> String.format("Performing blob processing: SessionId [%s], InvocationId [%s], Retry Attempt [%d], File name: [%s]", sessionId, context.getInvocationId(), retryIndex, fileName));
 
-				// read xml
-				Document document = loadXMLString(content);
-				Element element = searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
-				NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = getInstanceByNode(element, NodoInviaFlussoRendicontazioneRequest.class);
-				CtFlussoRiversamento ctFlussoRiversamento = getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
+				if (GZipUtil.isGzip(content)) {
 
-				// extract pathparam for FDR
-				String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
-				fdrBk = fdr;
-				String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
-				pspIdBk = pspId;
+					// decompress GZip file
+					InputStream decompressedStream = GZipUtil.decompressGzip(content);
 
-				// create body for create FDR
-				CreateRequest createRequest = getCreateRequest(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento);
+					// read xml
+					Document document = loadXML(decompressedStream);
+					Element element = searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
 
-				// call create FDR
-				manageHttpError(HttpEventTypeEnum.INTERNAL_CREATE, fileName, fdr, pspId, () ->
-						getPspApi().internalCreate(fdr, pspId, createRequest)
-				);
+					NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = getInstanceByNode(element, NodoInviaFlussoRendicontazioneRequest.class);
+					CtFlussoRiversamento ctFlussoRiversamento = getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
 
-				// create body for addPayment FDR (partitioned)
-				List<CtDatiSingoliPagamenti> datiSingoliPagamenti = ctFlussoRiversamento.getDatiSingoliPagamenti();
-				int partitionSize = Integer.parseInt(addPaymentRequestPartitionSize);
-				List<AddPaymentRequest> addPaymentRequestList = getAddPaymentRequestListPartitioned(datiSingoliPagamenti, partitionSize);
-				// call addPayment FDR for every partition
-				for (AddPaymentRequest addPaymentRequest : addPaymentRequestList) {
-					manageHttpError(HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, fileName, fdr, pspId, () ->
-							getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest)
-					);
-				}
+					// extract pathParam for FdR
+					String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
+					fdrBk = fdr;
+					String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
+					pspIdBk = pspId;
 
-				// call publish FDR
-				manageHttpError(HttpEventTypeEnum.INTERNAL_PUBLISH, fileName, fdr, pspId, () ->
-						getPspApi().internalPublish(fdr, pspId)
-				);
+					// create body for create FDR
+					CreateRequest createRequest = getCreateRequest(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento);
 
-				// delete BLOB
-				try {
-					getBlobContainerClient().getBlobClient(fileName).delete();
-				} catch (Exception e) {
-					Instant now = Instant.now();
-					ErrorEnum error = ErrorEnum.DELETE_BLOB_ERROR;
-					sendGenericError(now, fileName, fdr, pspId, error, e);
+					// call create FDR flow
+					createFdRFlow(sessionId, context.getInvocationId(), fileName, fdr, pspId, createRequest);
 
-					isPersistenceOk = false;
-					errorCause = getErrorMessage(error, fileName, now);
-					causedBy = e;
+					// call add FDR payments
+					addFdRPayments(sessionId, context.getInvocationId(), fileName, fdr, pspId, ctFlussoRiversamento);
+
+					// call publish FdR flow
+					publishFdRFlow(sessionId, context.getInvocationId(), fdr, pspId);
+
+					// delete BLOB
+					/**
+					try {
+						getBlobContainerClient().getBlobClient(fileName).delete();
+					} catch (Exception e) {
+						Instant now = Instant.now();
+						ErrorEnum error = ErrorEnum.DELETE_BLOB_ERROR;
+						sendGenericError(now, fileName, fdr, pspId, error, e);
+
+						isPersistenceOk = false;
+						errorCause = getErrorMessage(error, fileName, now);
+						causedBy = e;
+					}
+				 	**/
 				}
 
 			} catch (AppException e) {
@@ -233,36 +234,117 @@ public class FdrXmlToJson {
 		T get() throws ApiException;
 	}
 
-	private static String getHttpErrorMessage(ErrorEnum errorEnum, String fileName, HttpEventTypeEnum httpEventTypeEnum, String errorCode, Instant now){
-		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"] [fileName="+fileName+"] [httpEventTypeEnum="+httpEventTypeEnum.name()+"] [errorCode="+errorCode+"] Http error at "+ now;
-	}
-	private static String getErrorMessage(ErrorEnum errorEnum, String fileName, Instant now){
-		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"] [fileName="+fileName+"] Http error at "+ now;
-	}
-	private static<T> void manageHttpError(HttpEventTypeEnum httpEventTypeEnum, String fileName, String fdr, String pspId, SupplierWithApiException<T> fn){
+	private void createFdRFlow(
+			String sessionId, String invocationId, String fileName,
+			String fdr, String pspId, CreateRequest createRequest) throws IOException {
+		String operation = "Create FdR flow request";
+		logger.log(Level.INFO, () ->
+				String.format("%s: SessionId [%s], InvocationId [%s], PSP [%s], FileName: [%s]",
+						operation, sessionId, invocationId, pspId, fileName));
 		try {
-			fn.get();
+			getPspApi().internalCreate(fdr, pspId, createRequest);
 		} catch (ApiException e) {
-			String errorResposne = e.getResponseBody();
-			String errorCode = null;
-			try {
-				errorCode = ErrorResponse.fromJson(errorResposne).getAppErrorCode();
-			} catch (IOException ex) {
-				errorCode = "ERROR_PARSE_RESPONSE";
+			if (e.getCode() == HttpStatus.BAD_REQUEST.value()) {
+				String appErrorCode = ErrorResponse.fromJson(e.getResponseBody()).getAppErrorCode();
+				if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_FLOW_ALREADY_CREATED)) {
+					logger.log(Level.SEVERE, () ->
+							String.format("%s error: SessionId [%s], InvocationId [%s], StatusCode [%s], ResponseBody: [%s]",
+									operation, sessionId, invocationId, e.getCode(), e.getResponseBody()));
+					Instant now = Instant.now();
+					ErrorEnum error = ErrorEnum.HTTP_ERROR;
+					String message = getHttpErrorMessage(error, fileName, HttpEventTypeEnum.INTERNAL_CREATE, appErrorCode, now);
+					sendHttpError(now, fileName, fdr, pspId, error, HttpEventTypeEnum.INTERNAL_CREATE, e.getResponseBody(), appErrorCode, e);
+					throw new AppException(message, e);
+				}
 			}
-			Instant now = Instant.now();
-			ErrorEnum error = ErrorEnum.HTTP_ERROR;
-			String message = getHttpErrorMessage(error, fileName, httpEventTypeEnum, errorCode, now);
-			sendHttpError(now, fileName, fdr, pspId, error, httpEventTypeEnum, errorResposne, errorCode, e);
-			throw new AppException(message, e);
+			else {
+				Instant now = Instant.now();
+				ErrorEnum error = ErrorEnum.HTTP_ERROR;
+				String message = getHttpErrorMessage(error, fileName, HttpEventTypeEnum.INTERNAL_CREATE, String.valueOf(e.getCode()), now);
+				sendHttpError(now, fileName, fdr, pspId, error, HttpEventTypeEnum.INTERNAL_CREATE, e.getResponseBody(), String.valueOf(e.getCode()), e);
+				throw new AppException(message, e);
+			}
 		}
 	}
 
+	private void addFdRPayments(String sessionId, String invocationId, String fileName,
+								String fdr, String pspId, CtFlussoRiversamento ctFlussoRiversamento) throws IOException {
+		String operation = "Add FdR payments request";
+		logger.log(Level.INFO, () ->
+				String.format("%s: SessionId [%s], InvocationId [%s], PSP [%s], FileName: [%s]",
+						operation, sessionId, invocationId, pspId, fileName));
+
+		List<CtDatiSingoliPagamenti> datiSingoliPagamenti = ctFlussoRiversamento.getDatiSingoliPagamenti();
+		int partitionSize = Integer.parseInt(addPaymentRequestPartitionSize);
+		List<AddPaymentRequest> addPaymentRequestList = getAddPaymentRequestListPartitioned(datiSingoliPagamenti, partitionSize);
+		// call addPayment FDR for every partition
+		for (AddPaymentRequest addPaymentRequest : addPaymentRequestList) {
+			try {
+				getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest);
+			} catch (ApiException e) {
+				if (e.getCode() == HttpStatus.BAD_REQUEST.value()) {
+					String appErrorCode = ErrorResponse.fromJson(e.getResponseBody()).getAppErrorCode();
+					if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_PAYMENT_ALREADY_ADDED)) {
+						logger.log(Level.SEVERE, () ->
+								String.format("%s error: SessionId [%s], InvocationId [%s], Status code [%d], Body: [%s]",
+										operation, sessionId, invocationId, e.getCode(), e.getResponseBody()));
+						Instant now = Instant.now();
+						ErrorEnum error = ErrorEnum.HTTP_ERROR;
+						String message = getHttpErrorMessage(error, fileName, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, appErrorCode, now);
+						sendHttpError(now, fileName, fdr, pspId, error, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, e.getResponseBody(), appErrorCode, e);
+						throw new AppException(message, e);
+					}
+					else {
+						// case FDR_PAYMENT_ALREADY_ADDED
+						// TODO remove payment from list and retry
+						logger.log(Level.WARNING, () ->
+								String.format("%s already added: SessionId [%s], InvocationId [%s], Status code [%d], Body: [%s]",
+										operation, sessionId, invocationId, e.getCode(), e.getResponseBody()));
+					}
+				}
+				else {
+					Instant now = Instant.now();
+					ErrorEnum error = ErrorEnum.HTTP_ERROR;
+					String message = getHttpErrorMessage(error, fileName, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, String.valueOf(e.getCode()), now);
+					sendHttpError(now, fileName, fdr, pspId, error, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, e.getResponseBody(), String.valueOf(e.getCode()), e);
+					throw new AppException(message, e);
+				}
+			}
+		}
+	}
+
+	private void publishFdRFlow(String sessionId, String invocationId, String fdr, String pspId) throws IOException {
+		String operation = "Publish FdR flow request";
+		logger.log(Level.INFO, () ->
+				String.format("%s: SessionId [%s], InvocationId [%s], PSP [%s]",
+						operation, sessionId, invocationId, pspId));
+		try {
+			getPspApi().internalPublish(fdr, pspId);
+		} catch (ApiException e) {
+			if (e.getCode() != HttpStatus.NOT_FOUND.value()) {
+				logger.log(Level.SEVERE, () ->
+						String.format("%s error: SessionId [%s], InvocationId [%s], Status code [%d], Body: [%s]",
+								operation, sessionId, invocationId, e.getCode(), e.getResponseBody()));
+			}
+		}
+
+	}
+
+	private static String getHttpErrorMessage(ErrorEnum errorEnum, String fileName, HttpEventTypeEnum httpEventTypeEnum, String errorCode, Instant now){
+		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"] [fileName="+fileName+"] [httpEventTypeEnum="+httpEventTypeEnum.name()+"] [errorCode="+errorCode+"] Http error at "+ now;
+	}
+
+	private static String getErrorMessage(ErrorEnum errorEnum, String fileName, Instant now){
+		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"] [fileName="+fileName+"] Http error at "+ now;
+	}
+
 	private static void sendGenericError(Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, Exception e){
-		_sendToErrorTable(now, fileName, fdr, pspId, errorEnum, Optional.empty(),Optional.empty(), Optional.empty(), e);
+		logger.log(Level.SEVERE, () -> String.format("***** TODO sendGenericError"));
+//	TODO	_sendToErrorTable(now, fileName, fdr, pspId, errorEnum, Optional.empty(),Optional.empty(), Optional.empty(), e);
 	}
 	private static void sendHttpError(Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String httpErrorResposne, String httpErrorCode, Exception e){
-		_sendToErrorTable(now, fileName, fdr, pspId, errorEnum, Optional.ofNullable(httpEventTypeEnum), Optional.ofNullable(httpErrorResposne), Optional.of(httpErrorCode), e);
+		logger.log(Level.SEVERE, () -> String.format("***** TODO sendHttpError"));
+//	TODO	_sendToErrorTable(now, fileName, fdr, pspId, errorEnum, Optional.ofNullable(httpEventTypeEnum), Optional.ofNullable(httpErrorResposne), Optional.of(httpErrorCode), e);
 	}
 	private static void _sendToErrorTable(Instant now, String fileName, String fdr, String pspId, ErrorEnum errorEnum, Optional<HttpEventTypeEnum> httpEventTypeEnum, Optional<String> httpErrorResposne, Optional<String> httpErrorCode, Exception e){
 		String id = UUID.randomUUID().toString();
@@ -300,6 +382,7 @@ public class FdrXmlToJson {
 				})
 				.collect(Collectors.toList());
 	}
+
 	private Payment getPayment(CtDatiSingoliPagamenti ctDatiSingoliPagamenti, int index){
 		Payment payment = new Payment();
 		payment.setIndex((long) index);
@@ -311,6 +394,7 @@ public class FdrXmlToJson {
 		payment.setPayStatus(payStatusMap.get(ctDatiSingoliPagamenti.getCodiceEsitoSingoloPagamento()));
 		return payment;
 	}
+
 	private CreateRequest getCreateRequest(NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest, CtFlussoRiversamento ctFlussoRiversamento){
 		CreateRequest createRequest = new CreateRequest();
 		createRequest.setFdr(nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso());
@@ -338,6 +422,7 @@ public class FdrXmlToJson {
 		sender.setPassword(nodoInviaFlussoRendicontazioneRequest.getPassword());
 		return sender;
 	}
+
 	private Receiver getReceiver(NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest, CtFlussoRiversamento ctFlussoRiversamento){
 		String organizationId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoDominio();
 		String organizationName = ctFlussoRiversamento.getIstitutoRicevente().getDenominazioneRicevente();
@@ -355,26 +440,27 @@ public class FdrXmlToJson {
 		JAXBElement<T> jaxb =  unmarshaller.unmarshal(new StreamSource(new ByteArrayInputStream(content)), type);
 		return jaxb.getValue();
 	}
+
 	private <T> T getInstanceByNode(Node node, Class<T> type) throws JAXBException {
 		JAXBContext jaxbContext = JAXBContext.newInstance(type);
 		Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
 		JAXBElement<T> jaxb =  unmarshaller.unmarshal(node, type);
 		return jaxb.getValue();
 	}
-	public static Document loadXMLString(byte[] content) throws Exception{
+
+	public static Document loadXML(InputStream inputStream) throws Exception{
 		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 		DocumentBuilder db = dbf.newDocumentBuilder();
-		InputSource is = new InputSource(new ByteArrayInputStream(content));
-		return db.parse(is);
+		return db.parse(new InputSource(inputStream));
 	}
 
 	private Element searchNodeByName(Node node, String elementToSearch) {
 		NodeList nodeList = node.getChildNodes();
 		Element elementFound = null;
 		for (int i = 0; i < nodeList.getLength(); i++) {
-			Node currentode = nodeList.item(i);
-			if (currentode.getNodeType() == Node.ELEMENT_NODE) {
-				Element element = (Element) currentode;
+			Node currentNode = nodeList.item(i);
+			if (currentNode.getNodeType() == Node.ELEMENT_NODE) {
+				Element element = (Element) currentNode;
 				if(element.getTagName().endsWith(elementToSearch)){
 					return element;
 				} else {

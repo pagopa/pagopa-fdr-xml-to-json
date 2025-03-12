@@ -11,4 +11,7 @@ public class AppConstant {
     public static final String columnFieldHttpEventType = "httpEventType";
     public static final String columnFieldHttpErrorResposne = "httpErrorRespose";
     public static final String columnFieldStackTrace = "stackTrace";
+
+    public static final String FDR_FLOW_ALREADY_CREATED = "FDR-3002";
+    public static final String FDR_PAYMENT_ALREADY_ADDED = "FDR-3006";
 }
