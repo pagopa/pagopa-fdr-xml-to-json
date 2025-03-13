@@ -55,7 +55,6 @@ public class FdrXmlToJson {
 	private static final Integer MAX_RETRY_COUNT = 10;
 	private static final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
 
-
 	private static final String fdrNewBaseUrl = System.getenv("FDR_NEW_BASE_URL");
 	private static final String fdrNewApiKey = System.getenv("FDR_NEW_API_KEY");
 	private static final String addPaymentRequestPartitionSize = System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE");
@@ -183,21 +182,6 @@ public class FdrXmlToJson {
 
 					// call publish FdR flow
 					publishFdRFlow(sessionId, context.getInvocationId(), fdr, pspId);
-
-					// delete BLOB
-					/**
-					try {
-						getBlobContainerClient().getBlobClient(fileName).delete();
-					} catch (Exception e) {
-						Instant now = Instant.now();
-						ErrorEnum error = ErrorEnum.DELETE_BLOB_ERROR;
-						sendGenericError(now, fileName, fdr, pspId, error, e);
-
-						isPersistenceOk = false;
-						errorCause = getErrorMessage(error, fileName, now);
-						causedBy = e;
-					}
-				 	**/
 				}
 
 			} catch (AppException e) {
@@ -269,24 +253,73 @@ public class FdrXmlToJson {
 
 	private void addFdRPayments(String sessionId, String invocationId, String fileName,
 								String fdr, String pspId, CtFlussoRiversamento ctFlussoRiversamento) throws IOException {
-		String operation = "Add FdR payments request";
-		logger.log(Level.INFO, () ->
-				String.format("%s: SessionId [%s], InvocationId [%s], PSP [%s], FileName: [%s]",
-						operation, sessionId, invocationId, pspId, fileName));
-
 		List<CtDatiSingoliPagamenti> datiSingoliPagamenti = ctFlussoRiversamento.getDatiSingoliPagamenti();
-		int partitionSize = Integer.parseInt(addPaymentRequestPartitionSize);
-		List<AddPaymentRequest> addPaymentRequestList = getAddPaymentRequestListPartitioned(datiSingoliPagamenti, partitionSize);
-		// call addPayment FDR for every partition
+		int chunkSize = Integer.parseInt(addPaymentRequestPartitionSize);
+		List<AddPaymentRequest> addPaymentRequestList = getAddPaymentRequestListChunked(datiSingoliPagamenti, chunkSize);
+		// call addPayment FDR for each partition
 		for (AddPaymentRequest addPaymentRequest : addPaymentRequestList) {
-			try {
-				getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest);
-			} catch (ApiException e) {
-				if (e.getCode() == HttpStatus.BAD_REQUEST.value()) {
-					String appErrorCode = ErrorResponse.fromJson(e.getResponseBody()).getAppErrorCode();
-					if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_PAYMENT_ALREADY_ADDED)) {
+			sendAddFdrPayments(sessionId, invocationId, fileName, fdr, pspId, addPaymentRequest, 0);
+		}
+	}
+
+	private void sendAddFdrPayments(String sessionId, String invocationId, String fileName,
+									 String fdr, String pspId, AddPaymentRequest addPaymentRequest, int retry) throws IOException {
+		String operation = String.format("Add Fdr payments request [retry: %d]", retry);
+
+		try {
+			int chunkSize = addPaymentRequest.getPayments().size();
+			logger.log(Level.INFO, () ->
+					String.format("%s. Chunk size: %d : SessionId [%s], InvocationId [%s], PSP [%s], FileName: [%s]",
+							operation, chunkSize, sessionId, invocationId, pspId, fileName));
+			getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest);
+		}
+		catch (ApiException e) {
+			if (e.getCode() == HttpStatus.BAD_REQUEST.value()) {
+				String appErrorCode = ErrorResponse.fromJson(e.getResponseBody()).getAppErrorCode();
+				if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_PAYMENT_ALREADY_ADDED)) {
+					logger.log(Level.SEVERE, () ->
+							String.format("%s error: SessionId [%s], InvocationId [%s], Status code [%d], Body: [%s]",
+									operation, sessionId, invocationId, e.getCode(), e.getResponseBody()));
+					Instant now = Instant.now();
+					ErrorEnum error = ErrorEnum.HTTP_ERROR;
+					String message = getHttpErrorMessage(error, fileName, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, appErrorCode, now);
+					sendHttpError(now, fileName, fdr, pspId, error, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, e.getResponseBody(), appErrorCode, e);
+					throw new AppException(message, e);
+				}
+				else {
+					// case FDR_PAYMENT_ALREADY_ADDED
+					if (retry < 2) {
+						ErrorResponse errorResponse = ErrorResponse.fromJson(e.getResponseBody());
+						if (!errorResponse.getErrors().isEmpty()) {
+							String path = errorResponse.getErrors().get(0).getPath();
+							List<Long> indexes = Arrays.stream(path.replaceAll("[\\[\\] ]", "").split(","))
+									.map(Long::parseLong).toList();
+							List<Payment> paymentsFiltered = addPaymentRequest.getPayments().stream().filter(payment -> !indexes.contains(payment.getIndex())).toList();
+							if (!paymentsFiltered.isEmpty()) {
+								addPaymentRequest.setPayments(paymentsFiltered);
+								logger.log(Level.FINE, () ->
+										String.format("%s try to send chunk without conflicting indexes: SessionId [%s], InvocationId [%s], Status code [%d], Body: [%s]",
+												operation, sessionId, invocationId, e.getCode(), e.getResponseBody()));
+								sendAddFdrPayments(sessionId, invocationId, fileName, fdr, pspId, addPaymentRequest, retry + 1);
+							} else {
+								logger.log(Level.FINE, () ->
+										String.format("%s already added. Nothing to retry: SessionId [%s], InvocationId [%s], Status code [%d], Body: [%s]",
+												operation, sessionId, invocationId, e.getCode(), e.getResponseBody()));
+							}
+						} else {
+							logger.log(Level.SEVERE, () ->
+									String.format("%s no error in the response: SessionId [%s], InvocationId [%s], Status code [%d], Body: [%s]",
+											operation, sessionId, invocationId, e.getCode(), e.getResponseBody()));
+							Instant now = Instant.now();
+							ErrorEnum error = ErrorEnum.HTTP_ERROR;
+							String message = getHttpErrorMessage(error, fileName, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, appErrorCode, now);
+							sendHttpError(now, fileName, fdr, pspId, error, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, e.getResponseBody(), appErrorCode, e);
+							throw new AppException(message, e);
+						}
+					}
+					else {
 						logger.log(Level.SEVERE, () ->
-								String.format("%s error: SessionId [%s], InvocationId [%s], Status code [%d], Body: [%s]",
+								String.format("%s no error in the response: SessionId [%s], InvocationId [%s], Status code [%d], Body: [%s]",
 										operation, sessionId, invocationId, e.getCode(), e.getResponseBody()));
 						Instant now = Instant.now();
 						ErrorEnum error = ErrorEnum.HTTP_ERROR;
@@ -294,21 +327,14 @@ public class FdrXmlToJson {
 						sendHttpError(now, fileName, fdr, pspId, error, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, e.getResponseBody(), appErrorCode, e);
 						throw new AppException(message, e);
 					}
-					else {
-						// case FDR_PAYMENT_ALREADY_ADDED
-						// TODO remove payment from list and retry
-						logger.log(Level.WARNING, () ->
-								String.format("%s already added: SessionId [%s], InvocationId [%s], Status code [%d], Body: [%s]",
-										operation, sessionId, invocationId, e.getCode(), e.getResponseBody()));
-					}
 				}
-				else {
-					Instant now = Instant.now();
-					ErrorEnum error = ErrorEnum.HTTP_ERROR;
-					String message = getHttpErrorMessage(error, fileName, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, String.valueOf(e.getCode()), now);
-					sendHttpError(now, fileName, fdr, pspId, error, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, e.getResponseBody(), String.valueOf(e.getCode()), e);
-					throw new AppException(message, e);
-				}
+			}
+			else {
+				Instant now = Instant.now();
+				ErrorEnum error = ErrorEnum.HTTP_ERROR;
+				String message = getHttpErrorMessage(error, fileName, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, String.valueOf(e.getCode()), now);
+				sendHttpError(now, fileName, fdr, pspId, error, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT, e.getResponseBody(), String.valueOf(e.getCode()), e);
+				throw new AppException(message, e);
 			}
 		}
 	}
@@ -368,7 +394,7 @@ public class FdrXmlToJson {
 		tableClient.createEntity(entity);
 	}
 
-	private List<AddPaymentRequest> getAddPaymentRequestListPartitioned(List<CtDatiSingoliPagamenti> datiSingoliPagamentiList, int size){
+	private List<AddPaymentRequest> getAddPaymentRequestListChunked(List<CtDatiSingoliPagamenti> datiSingoliPagamentiList, int size){
 		List<List<CtDatiSingoliPagamenti>> datiSingoliPagamentiPartitioned = Lists.partition(datiSingoliPagamentiList, size);
 		AtomicInteger index = new AtomicInteger(1);
 		return datiSingoliPagamentiPartitioned.stream()
