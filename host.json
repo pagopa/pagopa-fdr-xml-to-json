@@ -11,13 +11,16 @@
     },
     "http": {
       "routePrefix": ""
+    },
+    "blobs": {
+      "poisonBlobThreshold": 1
     }
   },
-  "functions": [ "Info", "BlobFdrXmlToJsonEventProcessor", "XmlErrorRetry" ],
+  "functions": [ "Info", "BlobEventProcessor", "XmlErrorRetry" ],
   "logging": {
     "logLevel": {
       "default": "Error",
-      "Function.BlobFdrXmlToJsonEventProcessor": "Information",
+      "Function.BlobEventProcessor": "Information",
       "Function.XmlErrorRetry": "Information"
     },
     "applicationInsights": {

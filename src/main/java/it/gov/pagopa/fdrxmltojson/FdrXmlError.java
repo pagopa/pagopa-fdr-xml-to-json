@@ -12,6 +12,8 @@ import com.microsoft.azure.functions.*;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import it.gov.pagopa.fdrxmltojson.model.AppConstant;
+import it.gov.pagopa.fdrxmltojson.model.ErrorEnum;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.openapitools.client.ApiClient;
 import org.openapitools.client.ApiException;

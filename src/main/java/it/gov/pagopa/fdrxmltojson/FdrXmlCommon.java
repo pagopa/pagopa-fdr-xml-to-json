@@ -7,10 +7,9 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpStatus;
 import it.gov.digitpa.schemas._2011.pagamenti.CtDatiSingoliPagamenti;
 import it.gov.digitpa.schemas._2011.pagamenti.CtFlussoRiversamento;
-import it.gov.pagopa.fdrxmltojson.util.FdR3ClientUtil;
-import it.gov.pagopa.fdrxmltojson.util.GZipUtil;
-import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
-import it.gov.pagopa.fdrxmltojson.util.XMLUtil;
+import it.gov.pagopa.fdrxmltojson.model.AppConstant;
+import it.gov.pagopa.fdrxmltojson.model.ErrorEnum;
+import it.gov.pagopa.fdrxmltojson.util.*;
 import it.gov.pagopa.pagopa_api.node.nodeforpsp.NodoInviaFlussoRendicontazioneRequest;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.openapitools.client.ApiException;
@@ -39,10 +38,7 @@ public class FdrXmlCommon {
 	public void convertXmlToJson(ExecutionContext context,
 								 String sessionId,
 								 byte[] content,
-								 String fileName) {
-		String errorCause = null;
-		boolean isPersistenceOk = true;
-		Throwable causedBy = null;
+								 String fileName) throws Exception {
 		int retryAttempt = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
 		logger = context.getLogger();
@@ -50,61 +46,55 @@ public class FdrXmlCommon {
 			logger.log(Level.WARNING, () -> String.format("[ALERT][FdrXmlToJson][LAST_RETRY] Performing last retry for blob processing: SessionId [%s], InvocationId [%s], File name: %s",  sessionId, context.getInvocationId(), fileName));
 		}
 
-		String fdrBk = null;
-		String pspIdBk = null;
+		logger.log(Level.INFO, () -> messageFormat(sessionId, context.getInvocationId(), null, fileName, "Performing blob processing [retry attempt %d]", retryAttempt));
 
-		try {
-			logger.log(Level.INFO, () -> messageFormat(sessionId, context.getInvocationId(), null, fileName, "Performing blob processing [retry attempt %d]", retryAttempt));
+		if (GZipUtil.isGzip(content)) {
 
-			if (GZipUtil.isGzip(content)) {
+			// decompress GZip file
+			InputStream decompressedStream = GZipUtil.decompressGzip(content);
 
-				// decompress GZip file
-				InputStream decompressedStream = GZipUtil.decompressGzip(content);
+			// read xml
+			Document document = XMLUtil.loadXML(decompressedStream);
+			Element element = XMLUtil.searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
 
-				// read xml
-				Document document = XMLUtil.loadXML(decompressedStream);
-				Element element = XMLUtil.searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
+			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = XMLUtil.getInstanceByNode(element, NodoInviaFlussoRendicontazioneRequest.class);
+			CtFlussoRiversamento ctFlussoRiversamento = XMLUtil.getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
 
-				NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = XMLUtil.getInstanceByNode(element, NodoInviaFlussoRendicontazioneRequest.class);
-				CtFlussoRiversamento ctFlussoRiversamento = XMLUtil.getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
+			// extract pathParam for FdR
+			String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
+			String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
 
-				// extract pathParam for FdR
-				String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
-				fdrBk = fdr;
-				String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
-				pspIdBk = pspId;
+			// call create FDR flow
+			createFdRFlow(sessionId, context.getInvocationId(), fileName, fdr, pspId, nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento, retryAttempt);
 
-				// call create FDR flow
-				createFdRFlow(sessionId, context.getInvocationId(), fileName, fdr, pspId, nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento, retryAttempt);
+			// call add FDR payments
+			addFdRPayments(sessionId, context.getInvocationId(), fileName, fdr, pspId, ctFlussoRiversamento, retryAttempt);
 
-				// call add FDR payments
-				addFdRPayments(sessionId, context.getInvocationId(), fileName, fdr, pspId, ctFlussoRiversamento, retryAttempt);
-
-				// call publish FdR flow
-				publishFdRFlow(sessionId, context.getInvocationId(), fileName, fdr, pspId, retryAttempt);
-			}
-
-		} catch (AppException e) {
-			isPersistenceOk = false;
-			errorCause = e.getMessage();
-			causedBy = e;
-
-		} catch (Exception e) {
-			// TODO [FC] use generic code!
-			Instant now = Instant.now();
-			ErrorEnum error = ErrorEnum.GENERIC_ERROR;
-			sendGenericError(now, sessionId, context.getInvocationId(), fileName, fdrBk, pspIdBk, error, String.valueOf(retryAttempt), e);
-
-			isPersistenceOk = false;
-			errorCause = getErrorMessage(error, fileName, now);
-			causedBy = e;
+			// call publish FdR flow
+			publishFdRFlow(sessionId, context.getInvocationId(), fileName, fdr, pspId, retryAttempt);
 		}
 
-		if (!isPersistenceOk) {
-			String finalErrorCause = errorCause;
-			logger.log(Level.SEVERE, () -> finalErrorCause);
-			throw new AppException(errorCause, causedBy);
-		}
+//		} catch (AppException e) {
+//			isPersistenceOk = false;
+//			errorCause = e.getMessage();
+//			causedBy = e;
+//
+//		} catch (Exception e) {
+//			// TODO [FC] use generic code!
+//			Instant now = Instant.now();
+//			ErrorEnum error = ErrorEnum.GENERIC_ERROR;
+//			sendGenericError(now, sessionId, context.getInvocationId(), fileName, fdrBk, pspIdBk, error, String.valueOf(retryAttempt), e);
+//
+//			isPersistenceOk = false;
+//			errorCause = getErrorMessage(error, fileName, now);
+//			causedBy = e;
+//		}
+//
+//		if (!isPersistenceOk) {
+//			String finalErrorCause = errorCause;
+//			logger.log(Level.SEVERE, () -> finalErrorCause);
+//			throw new AppException(errorCause, causedBy);
+//		}
 	}
 
 	private enum HttpEventTypeEnum {
