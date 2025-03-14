@@ -1,8 +1,6 @@
-package it.gov.pagopa.fdrxmltojson;
+package it.gov.pagopa.fdrxmltojson.util;
 
 import lombok.Getter;
-
-import java.io.Serializable;
 
 @Getter
 public class AppException extends RuntimeException {

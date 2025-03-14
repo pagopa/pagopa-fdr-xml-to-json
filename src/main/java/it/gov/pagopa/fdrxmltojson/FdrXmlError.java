@@ -30,6 +30,7 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 
+import it.gov.pagopa.fdrxmltojson.model.AppConstant;
 import it.gov.pagopa.fdrxmltojson.util.ErrorCodes;
 
 
@@ -114,7 +115,7 @@ public class FdrXmlError {
 	}
 
 	private HttpResponseMessage processEntity(ExecutionContext context, HttpRequestMessage<Optional<String>> request,
-			String partitionKey, String rowKey, String tableName) throws IOException {
+			String partitionKey, String rowKey, String tableName) throws Exception {
 
 		Logger logger = context.getLogger();
 
@@ -136,7 +137,8 @@ public class FdrXmlError {
 
 
 		byte[] content = Clients.getBlobContainerClient().getBlobClient(fileName).downloadContent().toBytes();
-		new FdrXmlCommon().convertXmlToJson(context, sessionId, content, fileName);
+		// retryAttempt to 0 because it is an external call
+		new FdrXmlCommon().convertXmlToJson(context, sessionId, content, fileName, 0);
 
 		try {
 			Clients.getPspApi().internalDelete(fdr, pspId);  // clears the entire stream from FDR
@@ -161,7 +163,7 @@ public class FdrXmlError {
 		return null;
 	}
 
-	private HttpResponseMessage processAllEntities(ExecutionContext context, HttpRequestMessage<Optional<String>> request, String tableName) throws IOException {
+	private HttpResponseMessage processAllEntities(ExecutionContext context, HttpRequestMessage<Optional<String>> request, String tableName) throws Exception {
 		TableClient tableClient = Clients.getTableServiceClient().getTableClient(tableName);
 		Iterator<TableEntity> itr = tableClient.listEntities().iterator();
 		while (itr.hasNext()) {

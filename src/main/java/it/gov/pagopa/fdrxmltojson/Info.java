@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-import it.gov.pagopa.fdrxmltojson.dto.AppInfo;
+import it.gov.pagopa.fdrxmltojson.model.AppInfo;
 
 
 /**
