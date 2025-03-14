@@ -1,4 +1,4 @@
-package it.gov.pagopa.fdrxmltojson.dto;
+package it.gov.pagopa.fdrxmltojson.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;

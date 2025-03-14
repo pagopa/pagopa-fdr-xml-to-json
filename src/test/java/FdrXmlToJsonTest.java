@@ -3,7 +3,7 @@
 //import com.azure.storage.blob.BlobClient;
 //import com.azure.storage.blob.BlobContainerClient;
 //import com.microsoft.azure.functions.ExecutionContext;
-//import it.gov.pagopa.fdrxmltojson.AppException;
+//import it.gov.pagopa.fdrxmltojson.util.AppException;
 //import it.gov.pagopa.fdrxmltojson.FdrXmlToJson;
 //import lombok.SneakyThrows;
 //import org.junit.jupiter.api.Assertions;

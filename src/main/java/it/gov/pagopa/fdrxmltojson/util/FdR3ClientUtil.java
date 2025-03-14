@@ -20,7 +20,8 @@ public class FdR3ClientUtil {
 
     private static InternalPspApi pspApi = null;
 
-    private static final String FDR3_INTERNAL_API = System.getenv("FDR_NEW_BASE_URL");
+    // TODO [FC] remove AAA
+    private static final String FDR3_INTERNAL_API = System.getenv("FDR_NEW_BASE_URL") + "AAA";
     private static final String FDR3_INTERNAL_API_KEY = System.getenv("FDR_NEW_API_KEY");
 
     private static final Map<StTipoIdentificativoUnivoco, SenderTypeEnum> typeMap = new LinkedHashMap<>();

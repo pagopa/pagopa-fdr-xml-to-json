@@ -1,4 +1,4 @@
-package it.gov.pagopa.fdrxmltojson;
+package it.gov.pagopa.fdrxmltojson.model;
 
 public enum ErrorEnum {
     GENERIC_ERROR,
