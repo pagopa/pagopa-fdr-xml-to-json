@@ -16,11 +16,12 @@
       "poisonBlobThreshold": 1
     }
   },
-  "functions": [ "Info", "BlobEventProcessor", "XmlErrorRetry" ],
+  "functions": [ "Info", "BlobEventProcessor", "QueueEventProcessor", "XmlErrorRetry" ],
   "logging": {
     "logLevel": {
       "default": "Error",
       "Function.BlobEventProcessor": "Information",
+      "Function.QueueEventProcessor": "Information",
       "Function.XmlErrorRetry": "Information"
     },
     "applicationInsights": {

@@ -28,7 +28,7 @@ import java.util.logging.Logger;
 
 public class FdrXmlCommon {
 
-	private static final Integer MAX_RETRY_COUNT = 10;
+	private static final Integer MAX_RETRY_COUNT = 5;
 	private static final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
 
 	private static final String PAYMENT_CHUNK_SIZE = System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE");
@@ -38,8 +38,8 @@ public class FdrXmlCommon {
 	public void convertXmlToJson(ExecutionContext context,
 								 String sessionId,
 								 byte[] content,
-								 String fileName) throws Exception {
-		int retryAttempt = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
+								 String fileName,
+								 int retryAttempt) throws Exception {
 
 		logger = context.getLogger();
 		if (retryAttempt == MAX_RETRY_COUNT) {

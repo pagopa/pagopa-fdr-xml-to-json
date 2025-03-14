@@ -11,19 +11,10 @@ import java.util.*;
  */
 public class BlobTriggerFn {
 
-	/*
-	Executing this Azure Function in exponential retry, with steps:
-	- retry 0: 0
-	- retry 1: 10s
-	- retry 2: 20s
-	- retry 3: 40s
-	- ...
-	 */
-    @FunctionName("BlobEventProcessor")
-//	@ExponentialBackoffRetry(maxRetryCount = 5, maximumInterval = "01:30:00", minimumInterval = "00:00:10")
-    public void processNodoReEvent (
+	@FunctionName("BlobEventProcessor")
+    public void run (
 			@BlobTrigger(
-					name = "xmlTrigger",
+					name = "xmlToJsonTrigger",
 					connection = "STORAGE_ACCOUNT_CONN_STRING",
 					path = "%FDR1_FLOW_BLOB_CONTAINER_NAME%/{fileName}",
 					dataType = "binary") byte[] content,
@@ -36,15 +27,10 @@ public class BlobTriggerFn {
 			String sessionId = blobMetadata.getOrDefault("sessionId", "NA");
 			FdrXmlCommon fdrXmlCommon = new FdrXmlCommon();
 
-			fdrXmlCommon.convertXmlToJson(context, sessionId, content, fileName);
+			fdrXmlCommon.convertXmlToJson(context, sessionId, content, fileName, 0);
 
 		}
     }
-
-//	@FunctionalInterface
-//	public interface SupplierWithApiException<T> {
-//		T get() throws ApiException;
-//	}
 
 }
 
