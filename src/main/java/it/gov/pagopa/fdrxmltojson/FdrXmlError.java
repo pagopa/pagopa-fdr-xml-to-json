@@ -1,27 +1,35 @@
 package it.gov.pagopa.fdrxmltojson;
 
-import com.azure.core.util.BinaryData;
-import com.azure.data.tables.TableClient;
-import com.azure.data.tables.TableServiceClient;
-import com.azure.data.tables.TableServiceClientBuilder;
-import com.azure.data.tables.models.TableEntity;
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
-import com.microsoft.azure.functions.*;
-import com.microsoft.azure.functions.annotation.AuthorizationLevel;
-import com.microsoft.azure.functions.annotation.FunctionName;
-import com.microsoft.azure.functions.annotation.HttpTrigger;
+import java.io.UncheckedIOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Iterator;
+import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.openapitools.client.ApiClient;
 import org.openapitools.client.ApiException;
 import org.openapitools.client.api.InternalPspApi;
 
-import java.time.Instant;
-import java.util.Iterator;
-import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import com.azure.data.tables.TableClient;
+import com.azure.data.tables.TableServiceClient;
+import com.azure.data.tables.TableServiceClientBuilder;
+import com.azure.data.tables.models.TableEntity;
+import com.azure.data.tables.models.TableServiceException;
+import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.HttpMethod;
+import com.microsoft.azure.functions.HttpRequestMessage;
+import com.microsoft.azure.functions.HttpResponseMessage;
+import com.microsoft.azure.functions.HttpStatus;
+import com.microsoft.azure.functions.annotation.AuthorizationLevel;
+import com.microsoft.azure.functions.annotation.FunctionName;
+import com.microsoft.azure.functions.annotation.HttpTrigger;
+
+import it.gov.pagopa.fdrxmltojson.util.ErrorCodes;
 
 
 /**
@@ -29,44 +37,41 @@ import java.util.logging.Logger;
  */
 public class FdrXmlError {
 
-	private static final String fdrNewBaseUrl = System.getenv("FDR_NEW_BASE_URL");
-	private static final String fdrNewApiKey = System.getenv("FDR_NEW_API_KEY");
-	private static final String tableStorageConnString = System.getenv("TABLE_STORAGE_CONN_STRING");
-	private static final String tableName = System.getenv("TABLE_STORAGE_TABLE_NAME");
 
-	private static final String storageConnString = System.getenv("STORAGE_ACCOUNT_CONN_STRING");
-	private static final String blobContainerName = System.getenv("BLOB_CONTAINER_NAME");
-	private static TableServiceClient tableServiceClient = null;
-	private static InternalPspApi pspApi = null;
-	private static BlobContainerClient blobContainerClient;
+	// Thread-Safe Singleton for Clients
+	private static class Clients {
+		private static final TableServiceClient TABLE_SERVICE_CLIENT = new TableServiceClientBuilder()
+				.connectionString(System.getenv("STORAGE_ACCOUNT_CONN_STRING"))
+				.buildClient();
 
-	private static TableServiceClient getTableServiceClient(){
-		if(tableServiceClient==null){
-			tableServiceClient = new TableServiceClientBuilder()
-					.connectionString(tableStorageConnString)
-					.buildClient();
-			tableServiceClient.createTableIfNotExists(tableName);
-		}
-		return tableServiceClient;
-	}
-
-	private static InternalPspApi getPspApi(){
-		if(pspApi==null){
+		private static final InternalPspApi PSP_API;
+		static {
 			ApiClient apiClient = new ApiClient();
-			apiClient.setApiKey(fdrNewApiKey);
-			pspApi = new InternalPspApi(apiClient);
-			pspApi.setCustomBaseUrl(fdrNewBaseUrl);
+			apiClient.setApiKey(System.getenv("FDR_NEW_API_KEY"));
+			PSP_API = new InternalPspApi(apiClient);
+			PSP_API.setCustomBaseUrl(System.getenv("FDR_NEW_BASE_URL"));
 		}
-		return pspApi;
+
+		private static final BlobContainerClient BLOB_CONTAINER_CLIENT =
+				new BlobServiceClientBuilder()
+				.connectionString(System.getenv("STORAGE_ACCOUNT_CONN_STRING"))
+				.buildClient()
+				.getBlobContainerClient(System.getenv("FDR1_FLOW_BLOB_CONTAINER_NAME"));
+
+		public static TableServiceClient getTableServiceClient() {
+			return TABLE_SERVICE_CLIENT;
+		}
+
+		public static InternalPspApi getPspApi() {
+			return PSP_API;
+		}
+
+		public static BlobContainerClient getBlobContainerClient() {
+			return BLOB_CONTAINER_CLIENT;
+		}
 	}
 
-	private static BlobContainerClient getBlobContainerClient(){
-		if(blobContainerClient==null){
-			BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(storageConnString).buildClient();
-			blobContainerClient = blobServiceClient.createBlobContainerIfNotExists(blobContainerName);
-		}
-		return blobContainerClient;
-	}
+
 	@FunctionName("XmlErrorRetry")
 	public HttpResponseMessage run (
 			@HttpTrigger(name = "XmlErrorRetryTrigger",
@@ -77,76 +82,92 @@ public class FdrXmlError {
 
 		Logger logger = context.getLogger();
 
+		logger.log(Level.INFO, () -> String.format("[FDRXMLERROR] [invocationId: %s] Triggered at: %s", context.getInvocationId(), LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)));
+
 		try{
 			String partitionKey = request.getQueryParameters().get("partitionKey");
 			String rowKey = request.getQueryParameters().get("rowKey");
-			boolean deleteOnlyByKey = Boolean.parseBoolean(request.getQueryParameters().get("deleteOnlyByKey"));
-			TableClient tableClient = getTableServiceClient().getTableClient(tableName);
-			String message = null;
+
+			HttpResponseMessage response;
+
 			if(partitionKey != null && rowKey != null){
-				message = "Retrieve a single entity with [partitionKey="+partitionKey+"] [rowKey="+rowKey+"]";
-				logger.info(message);
-				TableEntity tableEntity = tableClient.getEntity(partitionKey, rowKey);
-				process(logger, tableClient, tableEntity, deleteOnlyByKey);
+				response = processEntity(context, request, partitionKey, rowKey, System.getenv("ERROR_TABLE_NAME"));
 			} else {
-				message = "Retrieve all entity";
-				logger.info(message);
-				Iterator<TableEntity> itr = tableClient.listEntities().iterator();
-				while (itr.hasNext()) {
-					TableEntity tableEntity = itr.next();
-					process(logger, tableClient, tableEntity, false);
-				}
+				response = processAllEntities(context, request, System.getenv("ERROR_TABLE_NAME"));
 			}
-			logger.info("Done processing events");
-			return request
-					.createResponseBuilder(HttpStatus.OK)
-					.body(" SUCCESS. "+message)
-					.build();
+
+			if (response == null) {
+				logger.log(Level.INFO, () -> String.format("[FDRXMLERROR] [invocationId: %s] Done processing events at: %s", context.getInvocationId(), LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)));
+				response = request.createResponseBuilder(HttpStatus.OK).body(HttpStatus.OK.toString()).build();
+			}
+
+			return response;
+
 		} catch (Exception e) {
-			logger.log(Level.SEVERE, "[ALERT] Generic error at "+Instant.now(), e);
+			logger.log(Level.SEVERE, () -> String.format("[%s] [invocationId: %s] Generic error at %s: %s",ErrorCodes.FDR1XMLERROR_E1, context.getInvocationId(), LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),e.getMessage()));
 			return request
 					.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body("FAILED. "+ExceptionUtils.getStackTrace(e))
+					.body(HttpStatus.INTERNAL_SERVER_ERROR.toString() + ": " + ExceptionUtils.getStackTrace(e))
 					.build();
 		}
 	}
 
+	private HttpResponseMessage processEntity(ExecutionContext context, HttpRequestMessage<Optional<String>> request,
+			String partitionKey, String rowKey, String tableName) {
 
-	private static void process(Logger logger, TableClient tableClient, TableEntity tableEntity, boolean deleteOnlyByKey) {
-		//cancella da FDR
-		String fdr = (String)tableEntity.getProperty(AppConstant.columnFieldFdr);
-		String pspId = (String)tableEntity.getProperty(AppConstant.columnFieldPspId);
-		logger.info("Process fdr=["+fdr+"], pspId=["+pspId+"]");
+		Logger logger = context.getLogger();
+
+		TableClient tableClient = Clients.getTableServiceClient().getTableClient(tableName);
+		TableEntity tableEntity = null;
 		try {
-			logger.info("Calling... internalDelete");
-			getPspApi().internalDelete(fdr, pspId);
-		} catch (ApiException e){
-			logger.severe("Failed internalDelete. "+e.getResponseBody());
-			//non faccio nulla perchè potrebbe essere che non esiste  e quindi è già fixato
+			tableEntity = tableClient.getEntity(partitionKey, rowKey);
+		} catch (TableServiceException e) {
+			return request
+					.createResponseBuilder(HttpStatus.NOT_FOUND)
+					.body(HttpStatus.NOT_FOUND.toString() + ": " + String.format("Not found Table entity with partitionKey=%s and rowKey=%s", partitionKey, rowKey))
+					.build();
 		}
 
-		// se errore è DELETE_BLOB_ERROR cancella solo il blob
-		// altriemnti emulo una modifica per far triggerare l'altra function
-		ErrorEnum errorEnum = ErrorEnum.valueOf((String)tableEntity.getProperty(AppConstant.columnFieldErrorType));
-		String fileName = (String)tableEntity.getProperty(AppConstant.columnFieldFileName);
-		if(ErrorEnum.DELETE_BLOB_ERROR == errorEnum){
-			logger.info("Delete only blob");
-			getBlobContainerClient().getBlobClient(fileName).delete();
-		} else {
-			if(deleteOnlyByKey){
-				logger.info("NOT Modify trick for start trigger, delete only");
-				getBlobContainerClient().getBlobClient(fileName).delete();
+		String fdr       = (String) tableEntity.getProperty(AppConstant.columnFieldFdr);
+		String pspId     = (String) tableEntity.getProperty(AppConstant.columnFieldPspId);
+		String fileName  = (String) tableEntity.getProperty(AppConstant.columnFieldFileName);
+		String sessionId = (String) tableEntity.getProperty(AppConstant.columnFieldSessionId);
+
+
+		byte[] content = Clients.getBlobContainerClient().getBlobClient(fileName).downloadContent().toBytes();
+		new FdrXmlCommon().convertXmlToJson(context, sessionId, content, fileName);
+
+		try {
+			Clients.getPspApi().internalDelete(fdr, pspId);  // clears the entire stream from FDR
+		} catch (ApiException e) {
+			if (e.getCode() == HttpStatus.NOT_FOUND.value()) {
+				logger.log(Level.WARNING, 
+						() -> String.format("[%s] [invocationId: %s] Failed internalDelete call at %s with fdr=%s and pspId=%s: %s ", 
+								ErrorCodes.FDR1XMLERROR_E2, context.getInvocationId(), LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME), fdr, pspId, e.getResponseBody()));
+				// anomaly is logged, no action is taken because the entity might not exist, meaning the issue is already resolved.
 			} else {
-				logger.info("Modify trick for start trigger");
-				BinaryData binaryData = getBlobContainerClient().getBlobClient(fileName).downloadContent();
-				getBlobContainerClient().getBlobClient(fileName).upload(binaryData, true);
+				HttpStatus status = HttpStatus.valueOf(e.getCode());
+				return request
+						.createResponseBuilder(status)
+						.body(status.toString() + String.format("Failed internalDelete call with fdr=%s and pspId=%s: %s", fdr, pspId, e.getResponseBody()))
+						.build();
 			}
 		}
 
-		//cancello la riga degli errori
-		logger.info("Delete row from error table");
 		tableClient.deleteEntity(tableEntity);
+
+		return null;
 	}
 
-
+	private HttpResponseMessage processAllEntities(ExecutionContext context, HttpRequestMessage<Optional<String>> request, String tableName) {
+		TableClient tableClient = Clients.getTableServiceClient().getTableClient(tableName);
+		Iterator<TableEntity> itr = tableClient.listEntities().iterator();
+		while (itr.hasNext()) {
+			HttpResponseMessage response = processEntity(context, request, itr.next().getPartitionKey(), itr.next().getRowKey(), tableName);
+			if (response != null) {
+				return response;
+			}
+		}
+		return null;
+	}
 }

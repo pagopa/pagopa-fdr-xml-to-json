@@ -13,7 +13,7 @@
       "routePrefix": ""
     }
   },
-  "functions": [ "Info", "BlobFdrXmlToJsonEventProcessor", "XmlErrorRetry" ],
+  "functions": [ "XmlErrorRetry" ],
   "logging": {
     "logLevel": {
       "default": "Error",
