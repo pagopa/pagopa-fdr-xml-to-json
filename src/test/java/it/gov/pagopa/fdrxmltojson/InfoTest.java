@@ -1,3 +1,4 @@
+package it.gov.pagopa.fdrxmltojson;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;

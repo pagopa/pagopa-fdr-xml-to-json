@@ -1,3 +1,5 @@
+package it.gov.pagopa.fdrxmltojson;
+
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableServiceClient;
