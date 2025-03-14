@@ -25,6 +25,8 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
+
 
 public class FdrXmlCommon {
 
@@ -39,12 +41,14 @@ public class FdrXmlCommon {
 								 String sessionId,
 								 byte[] content,
 								 String fileName,
-								 int retryAttempt) throws Exception {
+								 long retryAttempt) throws Exception {
 
 		logger = context.getLogger();
-		if (retryAttempt == MAX_RETRY_COUNT) {
-			logger.log(Level.WARNING, () -> String.format("[ALERT][FdrXmlToJson][LAST_RETRY] Performing last retry for blob processing: SessionId [%s], InvocationId [%s], File name: %s",  sessionId, context.getInvocationId(), fileName));
-		}
+
+//		TODO review alert
+//		if (retryAttempt == MAX_RETRY_COUNT) {
+//			logger.log(Level.WARNING, () -> String.format("[ALERT][FdrXmlToJson][LAST_RETRY] Performing last retry for blob processing: SessionId [%s], InvocationId [%s], File name: %s",  sessionId, context.getInvocationId(), fileName));
+//		}
 
 		logger.log(Level.INFO, () -> messageFormat(sessionId, context.getInvocationId(), null, fileName, "Performing blob processing [retry attempt %d]", retryAttempt));
 
@@ -74,27 +78,6 @@ public class FdrXmlCommon {
 			publishFdRFlow(sessionId, context.getInvocationId(), fileName, fdr, pspId, retryAttempt);
 		}
 
-//		} catch (AppException e) {
-//			isPersistenceOk = false;
-//			errorCause = e.getMessage();
-//			causedBy = e;
-//
-//		} catch (Exception e) {
-//			// TODO [FC] use generic code!
-//			Instant now = Instant.now();
-//			ErrorEnum error = ErrorEnum.GENERIC_ERROR;
-//			sendGenericError(now, sessionId, context.getInvocationId(), fileName, fdrBk, pspIdBk, error, String.valueOf(retryAttempt), e);
-//
-//			isPersistenceOk = false;
-//			errorCause = getErrorMessage(error, fileName, now);
-//			causedBy = e;
-//		}
-//
-//		if (!isPersistenceOk) {
-//			String finalErrorCause = errorCause;
-//			logger.log(Level.SEVERE, () -> finalErrorCause);
-//			throw new AppException(errorCause, causedBy);
-//		}
 	}
 
 	private enum HttpEventTypeEnum {
@@ -109,7 +92,7 @@ public class FdrXmlCommon {
 			String sessionId, String invocationId, String fileName,
 			String fdr, String pspId,
 			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest,
-			CtFlussoRiversamento ctFlussoRiversamento, int retryAttempt) throws IOException {
+			CtFlussoRiversamento ctFlussoRiversamento, long retryAttempt) throws IOException {
 
 		String operation = "Create request";
 		logger.log(Level.INFO, () -> messageFormat(sessionId, invocationId, pspId, fileName, operation));
@@ -146,7 +129,7 @@ public class FdrXmlCommon {
 
 
 	private void addFdRPayments(String sessionId, String invocationId, String fileName,
-								String fdr, String pspId, CtFlussoRiversamento ctFlussoRiversamento, int retryAttempt) throws IOException {
+								String fdr, String pspId, CtFlussoRiversamento ctFlussoRiversamento, long retryAttempt) throws IOException {
 		List<CtDatiSingoliPagamenti> datiSingoliPagamenti = ctFlussoRiversamento.getDatiSingoliPagamenti();
 		int chunkSize = Integer.parseInt(PAYMENT_CHUNK_SIZE);
 		FdR3ClientUtil fdR3ClientUtil = new FdR3ClientUtil();
@@ -158,7 +141,7 @@ public class FdrXmlCommon {
 	}
 
 	private void sendAddFdrPayments(String sessionId, String invocationId, String fileName,
-									String fdr, String pspId, AddPaymentRequest addPaymentRequest, int retryAttempt, int internalRetry) throws IOException {
+									String fdr, String pspId, AddPaymentRequest addPaymentRequest, long retryAttempt, int internalRetry) throws IOException {
 		String operation = String.format("Add payments request [retryAttempt: %d][internalRetry: %d]", retryAttempt, internalRetry);
 
 		try {
@@ -220,7 +203,7 @@ public class FdrXmlCommon {
 		}
 	}
 
-	private void publishFdRFlow(String sessionId, String invocationId, String fileName, String fdr, String pspId, int retryAttempt) {
+	private void publishFdRFlow(String sessionId, String invocationId, String fileName, String fdr, String pspId, long retryAttempt) {
 		String operation = "Publish request";
 		logger.log(Level.INFO, () -> messageFormat(sessionId, invocationId, pspId, fileName, operation));
 		try {
@@ -243,22 +226,22 @@ public class FdrXmlCommon {
 		throw new AppException(message, e);
 	}
 
-	private String messageFormat(String sessionId, String invocationId, String pspId, String fileName, String message, Object... args) {
-		String suffix = String.format(" [sessionId: %s][invocationId: %s][psp: %s][filename: %s]", sessionId, invocationId, pspId, fileName);
-		return String.format(message, args) + suffix;
-	}
+//	private String messageFormat(String sessionId, String invocationId, String pspId, String fileName, String message, Object... args) {
+//		String suffix = String.format(" [sessionId: %s][invocationId: %s][psp: %s][filename: %s]", sessionId, invocationId, pspId, fileName);
+//		return String.format(message, args) + suffix;
+//	}
 
 	private static String getHttpErrorMessage(ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String errorCode, Instant now){
 		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"][httpEventTypeEnum="+httpEventTypeEnum.name()+"][errorCode="+errorCode+"] Http error at "+ now;
 	}
 
-	private static String getErrorMessage(ErrorEnum errorEnum, String fileName, Instant now) {
-		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"] [fileName="+fileName+"] Http error at "+ now;
-	}
-
-	private static void sendGenericError(Instant now, String sessionId, String invocationId, String fileName, String fdr, String pspId, ErrorEnum errorEnum, String retryAttempt, Exception e) {
-		_sendToErrorTable(now, sessionId, invocationId, fileName, fdr, pspId, errorEnum, Optional.empty(),Optional.empty(), Optional.empty(), retryAttempt, e);
-	}
+//	private static String getErrorMessage(ErrorEnum errorEnum, String fileName, Instant now) {
+//		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"] [fileName="+fileName+"] Http error at "+ now;
+//	}
+//
+//	private static void sendGenericError(Instant now, String sessionId, String invocationId, String fileName, String fdr, String pspId, ErrorEnum errorEnum, String retryAttempt, Exception e) {
+//		_sendToErrorTable(now, sessionId, invocationId, fileName, fdr, pspId, errorEnum, Optional.empty(),Optional.empty(), Optional.empty(), retryAttempt, e);
+//	}
 
 	private static void sendHttpError(Instant now, String sessionId, String invocationId, String fileName, String fdr, String pspId, ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String httpErrorResponse, String httpErrorCode, String retryAttempt, Exception e) {
 		_sendToErrorTable(now, sessionId, invocationId, fileName, fdr, pspId, errorEnum, Optional.ofNullable(httpEventTypeEnum), Optional.ofNullable(httpErrorResponse), Optional.of(httpErrorCode), retryAttempt, e);
