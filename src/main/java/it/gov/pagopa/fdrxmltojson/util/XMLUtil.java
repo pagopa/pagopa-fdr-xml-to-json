@@ -57,4 +57,9 @@ public class XMLUtil {
         JAXBElement<T> jaxb =  unmarshaller.unmarshal(new StreamSource(new ByteArrayInputStream(content)), type);
         return jaxb.getValue();
     }
+
+    public static String messageFormat(String sessionId, String invocationId, String pspId, String fileName, String message, Object... args) {
+        String suffix = String.format(" [sessionId: %s][invocationId: %s][psp: %s][filename: %s]", sessionId, invocationId, pspId, fileName);
+        return String.format(message, args) + suffix;
+    }
 }

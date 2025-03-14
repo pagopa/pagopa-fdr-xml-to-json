@@ -8,11 +8,16 @@ import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.ExponentialBackoffRetry;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
+import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.model.QueueMessage;
 import it.gov.pagopa.fdrxmltojson.util.AppException;
+import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
 
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
 
 public class QueueTriggerFn {
 
@@ -35,15 +40,23 @@ public class QueueTriggerFn {
             @BindingName("DequeueCount") long dequeueCount,
             final ExecutionContext context) throws Exception {
 
+        String operation = "Queue Trigger ";
         logger = context.getLogger();
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
+        logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), null, "NA", "Performing queue processing [retry attempt %d]", dequeueCount));
 
         QueueMessage queueMessage = objectMapper.readValue(message, QueueMessage.class);
 
-        logger.log(Level.INFO, () -> String.format("QUEUE [dequeue count: %d][fileName: %s]", dequeueCount, queueMessage.getFileName()));
-
-        throw new Exception();
+        BlobData blobData = StorageAccountUtil.getBlobContent(queueMessage.getFileName());
+        FdrXmlCommon fdrXmlCommon = new FdrXmlCommon();
+        String sessionId = Optional.ofNullable(blobData.getMetadata().get("sessionId")).orElse("NA");
+        try {
+            fdrXmlCommon.convertXmlToJson(context, sessionId, blobData.getContent(), blobData.getFileName(), dequeueCount);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e, () -> messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "%s error [retry attempt: %s]", operation, dequeueCount));
+            throw new Exception();
+        }
 
     }
 
