@@ -1,160 +1,167 @@
 package it.gov.pagopa.fdrxmltojson;
 
-import com.azure.core.http.rest.PagedIterable;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.logging.Logger;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.stubbing.Answer;
+import org.openapitools.client.ApiException;
+import org.openapitools.client.api.InternalPspApi;
+
+import com.azure.core.util.IterableStream;
 import com.azure.data.tables.TableClient;
-import com.azure.data.tables.TableServiceClient;
 import com.azure.data.tables.models.TableEntity;
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobContainerClient;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
-import it.gov.pagopa.fdrxmltojson.model.AppConstant;
-import it.gov.pagopa.fdrxmltojson.FdrXmlError;
-import lombok.SneakyThrows;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.Spy;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.powermock.reflect.Whitebox;
 
-import java.util.*;
-import java.util.logging.Logger;
+import it.gov.pagopa.fdrxmltojson.model.BlobData;
+import it.gov.pagopa.fdrxmltojson.util.FdR3ClientUtil;
+import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
+import uk.org.webcompere.systemstubs.jupiter.SystemStub;
+import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
+import util.FakeHttpResponseBuilder;
+import util.TestUtil;
 
-import static org.mockito.Mockito.*;
-
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
 class FdrXmlErrorTest {
 
-    @Spy
-    FdrXmlError fdrXmlError;
+	@InjectMocks
+	private FdrXmlError fdrXmlError;
 
-    @Mock
-    ExecutionContext context;
+	@Mock
+	private ExecutionContext context;
 
-    private static final Logger logger = Logger.getLogger("FdrXmlError-test-logger");
+	@Mock
+	private HttpRequestMessage<Optional<String>> request;
 
-    final HttpRequestMessage<Optional<String>> request = mock(HttpRequestMessage.class);
-    final HttpResponseMessage.Builder builder = mock(HttpResponseMessage.Builder.class);
+	@Mock
+	private Logger logger;
 
-    @Test
-    @SneakyThrows
-    void runOk() {
-        // mocking objects
-        when(context.getLogger()).thenReturn(logger);
+	@Mock
+	private TableClient mockTableClient;
 
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
+	private MockedStatic<FdR3ClientUtil> mockFdR3ClientUtil;
 
-        Whitebox.setInternalState(FdrXmlError.class, "tableName", "errors");
-        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-        Whitebox.setInternalState(FdrXmlError.class, "tableServiceClient", tableServiceClient);
-        TableClient tableClient = mock(TableClient.class);
-        PagedIterable<TableEntity> pagedIterable = mock(PagedIterable.class);
-        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-        when(tableClient.listEntities()).thenReturn(pagedIterable);
-        TableEntity tableEntity = new TableEntity("2024-01-01", "1");
-        Map<String, Object> tableEntityMap = new HashMap<>();
-        tableEntityMap.put(AppConstant.columnFieldFdr, "fdr");
-        tableEntityMap.put(AppConstant.columnFieldPspId, "pspId");
-        tableEntityMap.put(AppConstant.columnFieldErrorType, "DELETE_BLOB_ERROR");
-        tableEntityMap.put(AppConstant.columnFieldFileName, "provaFileName");
-        tableEntity.setProperties(tableEntityMap);
-        Iterator<TableEntity> mockIterator = List.of(tableEntity).iterator();
-        when(pagedIterable.iterator()).thenReturn(mockIterator);
+	private MockedStatic<StorageAccountUtil> mockStorageAccountUtil;
 
-        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-        BlobClient blobClient = mock(BlobClient.class);
-        when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
-        Whitebox.setInternalState(FdrXmlError.class, "blobContainerClient", blobContainerClient);
+	@SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
-        // generating input
-        request.getQueryParameters().put("partitionKey", "2024-01-01");
-        request.getQueryParameters().put("rowKey", "1");
-        request.getQueryParameters().put("deleteOnlyByKey", "true");
+	@BeforeEach
+	void setUp() throws ApiException {
+		// Simulate environment variables
+		environmentVariables.set("STORAGE_ACCOUNT_CONN_STRING", "UseDevelopmentStorage=true");
+		environmentVariables.set("FDR1_FLOW_BLOB_CONTAINER_NAME", "fake-fdr1-flow");
+		environmentVariables.set("ERROR_TABLE_NAME", "fake-fdr1-error");
 
-        // execute logic
-        Assertions.assertThrows(Exception.class, () -> fdrXmlError.run(request, context));
-    }
+		when(context.getLogger()).thenReturn(logger);
+		lenient().when(context.getInvocationId()).thenReturn("test-invocation");
 
-    @Test
-    @SneakyThrows
-    void runOk_2() {
-        // mocking objects
-        when(context.getLogger()).thenReturn(logger);
+		// Mock response builder
+		when(request.createResponseBuilder(any(HttpStatus.class)))
+		.thenAnswer(invocation -> new FakeHttpResponseBuilder().status(invocation.getArgument(0)));
 
-        Whitebox.setInternalState(FdrXmlError.class, "tableName", "errors");
-        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-        Whitebox.setInternalState(FdrXmlError.class, "tableServiceClient", tableServiceClient);
-        TableClient tableClient = mock(TableClient.class);
-        PagedIterable<TableEntity> pagedIterable = mock(PagedIterable.class);
-        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-        when(tableClient.listEntities()).thenReturn(pagedIterable);
-        TableEntity tableEntity = new TableEntity("2024-01-01", "1");
-        Map<String, Object> tableEntityMap = new HashMap<>();
-        tableEntityMap.put(AppConstant.columnFieldFdr, "fdr");
-        tableEntityMap.put(AppConstant.columnFieldPspId, "pspId");
-        tableEntityMap.put(AppConstant.columnFieldErrorType, "GENERIC_ERROR");
-        tableEntityMap.put(AppConstant.columnFieldFileName, "provaFileName");
-        tableEntity.setProperties(tableEntityMap);
-        Iterator<TableEntity> mockIterator = List.of(tableEntity).iterator();
-        when(pagedIterable.iterator()).thenReturn(mockIterator);
+		// Mock static methods of StorageAccountUtil
+		mockStorageAccountUtil = mockStatic(StorageAccountUtil.class);
+		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+		mockStorageAccountUtil.when(() -> StorageAccountUtil.getBlobContent(anyString()))
+		.thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()
+				.fileName(invocation.getArgument(0))
+				.metadata(Map.of("sessionId", "fake-sessionId"))
+				.content(new byte[]{1, 2, 3})
+				.build());
 
-        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-        BlobClient blobClient = mock(BlobClient.class);
-        when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
-        Whitebox.setInternalState(FdrXmlError.class, "blobContainerClient", blobContainerClient);
+		// Mock table entities
+		List<TableEntity> entities = new ArrayList<>();
+		for (int i = 1; i <= 2; i++) {
+			TableEntity entity = new TableEntity("testPartition", "row" + i)
+					.addProperty("name", "EntityName" + i)
+					.addProperty("value", i * 10)
+					.addProperty("status", "active")
+					.addProperty("fileName", "fake-file-name")
+					.addProperty("fdr", "fake-fdr")
+					.addProperty("pspId", "fake-pspId");
+			entities.add(entity);
+		}
+		lenient().when(mockTableClient.listEntities())
+		.thenReturn(TestUtil.createPagedIterable(new IterableStream<>(entities)));
 
-        // generating input
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
+		lenient().when(mockTableClient.getEntity(anyString(), anyString())).thenReturn(entities.get(0));
 
-        request.getQueryParameters().put("partitionKey", "2024-01-01");
-        request.getQueryParameters().put("rowKey", "1");
-        request.getQueryParameters().put("deleteOnlyByKey", "true");
+		String responseBody="{\"httpStatusCode\":404,\"httpStatusDescription\":\"Not Found\",\"appErrorCode\":\"FDR-3001\",\"errors\":[{\"message\":\"Flow with ID [mock-flow-id] not found.\"}]}"; 
+		Map<String, List<String>> responseHeaders = new HashMap<>(){
+			private static final long serialVersionUID = 1L;
+		{
+			put("content-type", Arrays.asList("application/json", "charset=UTF-8"));
+		}};
+		ApiException apiException = new ApiException(404, responseHeaders, responseBody);
+		// Mock static methods of FdR3ClientUtil
+		InternalPspApi mockInternalPspApi = mock(InternalPspApi.class);
+		mockFdR3ClientUtil = mockStatic(FdR3ClientUtil.class);
+		mockFdR3ClientUtil.when(FdR3ClientUtil::getPspApi).thenReturn(mockInternalPspApi);
+		lenient().when(mockInternalPspApi.internalDelete(anyString(), anyString())).thenThrow(apiException);
+	}
 
-        // execute logic
-        Assertions.assertThrows(Exception.class, () -> fdrXmlError.run(request, context));
-    }
+	@Test
+	void testRun_withValidPartitionAndRowKey() {
+		when(request.getQueryParameters()).thenReturn(Map.of("partitionKey", "testPartition", "rowKey", "testRow"));
 
-    @Test
-    @SneakyThrows
-    void runKo_1() {
-        // mocking objects
-        when(context.getLogger()).thenReturn(logger);
+		HttpResponseMessage response = fdrXmlError.run(request, context);
 
-        doReturn(builder).when(request).createResponseBuilder(any(HttpStatus.class));
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatus());
+	}
 
-        Whitebox.setInternalState(FdrXmlError.class, "tableName", "errors");
-        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-        Whitebox.setInternalState(FdrXmlError.class, "tableServiceClient", tableServiceClient);
-        TableClient tableClient = mock(TableClient.class);
-        PagedIterable<TableEntity> pagedIterable = mock(PagedIterable.class);
-        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-        when(tableClient.listEntities()).thenReturn(pagedIterable);
-        TableEntity tableEntity = new TableEntity("2024-01-01", "1");
-        Map<String, Object> tableEntityMap = new HashMap<>();
-        tableEntityMap.put(AppConstant.columnFieldFdr, "fdr");
-        tableEntityMap.put(AppConstant.columnFieldPspId, "pspId");
-        tableEntityMap.put(AppConstant.columnFieldErrorType, "GENERIC_ERROR");
-        tableEntityMap.put(AppConstant.columnFieldFileName, "provaFileName");
-        tableEntity.setProperties(tableEntityMap);
-        Iterator<TableEntity> mockIterator = List.of(tableEntity).iterator();
-        when(pagedIterable.iterator()).thenReturn(mockIterator);
+	@Test
+	void testRun_withoutPartitionAndRowKey() {
+		when(request.getQueryParameters()).thenReturn(Map.of());
 
-        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-        BlobClient blobClient = mock(BlobClient.class);
-        when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
-        Whitebox.setInternalState(FdrXmlError.class, "blobContainerClient", blobContainerClient);
+		HttpResponseMessage response = fdrXmlError.run(request, context);
 
-        // generating input
-        request.getQueryParameters().put("partitionKey", "2024-01-01");
-        request.getQueryParameters().put("rowKey", "1");
-        request.getQueryParameters().put("deleteOnlyByKey", "false");
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatus());
+	}
 
-        // execute logic
-        Assertions.assertThrows(Exception.class, () -> fdrXmlError.run(request, context));
-    }
+	@Test
+	void testRun_withException() {
+		when(request.getQueryParameters()).thenThrow(new RuntimeException("Test Exception"));
 
+		HttpResponseMessage response = fdrXmlError.run(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
+	}
+
+	@AfterEach
+	void tearDown() {
+		if (mockStorageAccountUtil != null) {
+			mockStorageAccountUtil.close();
+		}
+		if (mockFdR3ClientUtil != null) {
+			mockFdR3ClientUtil.close();
+		}
+	}
 }
