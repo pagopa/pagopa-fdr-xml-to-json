@@ -30,7 +30,7 @@ import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
  */
 public class FdrXmlError {
 
-	private String OPERATION = "XmlErrorRetry ";
+	private String operation = "XmlErrorRetry ";
 
 
 	@FunctionName("XmlErrorRetry")
@@ -43,9 +43,9 @@ public class FdrXmlError {
 
 		Logger logger = context.getLogger();
 		String triggeredAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-		OPERATION = String.format("%s triggered at %s",  OPERATION, triggeredAt);
+		operation = String.format("%s triggered at %s",  operation, triggeredAt);
 
-		logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", OPERATION));
+		logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", operation));
 
 		try{
 			String partitionKey = request.getQueryParameters().get("partitionKey");
@@ -60,14 +60,14 @@ public class FdrXmlError {
 			}
 
 			if (response == null) {
-				logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s executed", OPERATION));
+				logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s executed", operation));
 				response = request.createResponseBuilder(HttpStatus.OK).body(HttpStatus.OK.toString()).build();
 			}
 
 			return response;
 
 		} catch (Exception e) {
-			logger.log(Level.SEVERE, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s error: %s", OPERATION, e.getMessage()));
+			logger.log(Level.SEVERE, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s error: %s", operation, e.getMessage()));
 
 			return request
 					.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -94,12 +94,13 @@ public class FdrXmlError {
 		}
 
 		String fileName  = (String) tableEntity.getProperty(AppConstant.columnFieldFileName);
+		String fdr       = (String) tableEntity.getProperty(AppConstant.columnFieldFdr);
+		String pspId     = (String) tableEntity.getProperty(AppConstant.columnFieldPspId);
 
 		BlobData blobData = StorageAccountUtil.getBlobContent(fileName);
 		byte[] content = blobData.getContent();
 		String sessionId = blobData.getMetadata().get(AppConstant.columnFieldSessionId);
-		String fdr = blobData.getMetadata().get(AppConstant.columnFieldFdr);
-		String pspId = blobData.getMetadata().get(AppConstant.columnFieldPspId);
+		
 		// retryAttempt to 0 because it is an external call
 		new FdrXmlCommon().convertXmlToJson(context, sessionId, content, fileName, 0);
 
@@ -108,7 +109,7 @@ public class FdrXmlError {
 		} catch (ApiException e) {
 			String appErrorCode = ErrorResponse.fromJson(e.getResponseBody()).getAppErrorCode();
 			if (e.getCode() == HttpStatus.NOT_FOUND.value() && AppConstant.FDR_FLOW_NOT_FOUND.equalsIgnoreCase(appErrorCode)) {
-				logger.log(Level.WARNING, () -> messageFormat(sessionId, context.getInvocationId(), pspId, fileName, "%s - InternalDelete failed %s", OPERATION, e.getResponseBody()));
+				logger.log(Level.WARNING, () -> messageFormat(sessionId, context.getInvocationId(), pspId, fileName, "%s - InternalDelete failed %s", operation, e.getResponseBody()));
 				// anomaly is logged, no action is taken because the entity might not exist, meaning the issue is already resolved.
 			} else {
 				HttpStatus status = HttpStatus.valueOf(e.getCode());
