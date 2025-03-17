@@ -1,285 +1,167 @@
 package it.gov.pagopa.fdrxmltojson;
-//import com.azure.data.tables.TableClient;
-//import com.azure.data.tables.TableServiceClient;
-//import com.azure.storage.blob.BlobClient;
-//import com.azure.storage.blob.BlobContainerClient;
-//import com.microsoft.azure.functions.ExecutionContext;
-//import it.gov.pagopa.fdrxmltojson.util.AppException;
-//import it.gov.pagopa.fdrxmltojson.FdrXmlToJson;
-//import lombok.SneakyThrows;
-//import org.junit.jupiter.api.Assertions;
-//import org.junit.jupiter.api.Test;
-//import org.junit.jupiter.api.extension.ExtendWith;
-//import org.mockito.Mock;
-//import org.mockito.Spy;
-//import org.mockito.junit.jupiter.MockitoExtension;
-//import org.openapitools.client.ApiException;
-//import org.openapitools.client.api.InternalPspApi;
-//import org.openapitools.client.model.ErrorResponse;
-//import org.openapitools.client.model.GenericResponse;
-//import org.powermock.reflect.Whitebox;
-//import util.TestUtil;
-//
-//import java.io.IOException;
-//import java.nio.charset.StandardCharsets;
-//import java.util.HashMap;
-//import java.util.UUID;
-//import java.util.logging.Logger;
-//
-//import static org.mockito.Mockito.*;
-//
-//@ExtendWith(MockitoExtension.class)
-//class FdrXmlToJsonTest {
-//
-//    @Spy
-//    FdrXmlToJson fdrXmlToJson;
-//
-//    @Mock
-//    ExecutionContext context;
-//
-//    private static final Logger logger = Logger.getLogger("FdrXmlToJson-test-logger");
-//
-//    @Test
-//    @SneakyThrows
-//    void runOk_withoutAdditionalProperties() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient", tableServiceClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableName", "errors");
-//
-//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-//        BlobClient blobClient = mock(BlobClient.class);
-//        when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient", blobContainerClient);
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi", pspApi);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize", "10");
-//
-//        GenericResponse genericResponse = new GenericResponse();
-//        genericResponse.setMessage("OK");
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
-//
-//        // execute logic
-//        fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context);
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalPublish(anyString(), anyString());
-//    }
-//
-//    @Test
-//    @SneakyThrows
-//    void runKo_maxRetryCount() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient",  tableServiceClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableName",  "errors");
-//
-//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-//        BlobClient blobClient = mock(BlobClient.class);
-//        when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient",  blobContainerClient);
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi",  pspApi);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize",  "10");
-//
-//        GenericResponse genericResponse = new GenericResponse();
-//        genericResponse.setMessage("OK");
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
-//
-//        Whitebox.setInternalState(FdrXmlToJson.class, "MAX_RETRY_COUNT",  -1);
-//        // execute logic
-//        fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context);
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalPublish(anyString(), anyString());
-//    }
-//
-//    @Test
-//    @SneakyThrows
-//    void runKo_errorBlobContainerLoad() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient",  tableServiceClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableName",  "errors");
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi",  pspApi);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize",  "10");
-//
-//        GenericResponse genericResponse = new GenericResponse();
-//        genericResponse.setMessage("OK");
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
-//
-//        Whitebox.setInternalState(FdrXmlToJson.class, "MAX_RETRY_COUNT",  -1);
-//        // execute logic
-//        Assertions.assertThrows(Exception.class,
-//                () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalPublish(anyString(), anyString());
-//    }
-//
-//    @Test
-//    @SneakyThrows
-//    void runKo_errorBlobContainerDelete() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        TableClient tableClient = mock(TableClient.class);
-//        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient",  tableServiceClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableName",  "errors");
-//
-//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient",  blobContainerClient);
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi",  pspApi);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize",  "10");
-//
-//        GenericResponse genericResponse = new GenericResponse();
-//        genericResponse.setMessage("OK");
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
-//
-//        // execute logic
-//        Assertions.assertThrows(Exception.class,
-//                () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalPublish(anyString(), anyString());
-//    }
-//
-//    @Test
-//    @SneakyThrows
-//    void runKo_pspHttpError() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient",  tableServiceClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableName",  "errors");
-//
-//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-//        BlobClient blobClient = mock(BlobClient.class);
-//        when(blobContainerClient.getBlobClient(anyString())).thenReturn(blobClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient",  blobContainerClient);
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi",  pspApi);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize",  "10");
-//
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(null);
-//
-//        Whitebox.setInternalState(FdrXmlToJson.class, "MAX_RETRY_COUNT",  -1);
-//        // execute logic
-//        fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context);
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalPublish(anyString(), anyString());
-//    }
-//
-//    @Test
-//    @SneakyThrows
-//    void runKo_pspErrorResponse() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        TableClient tableClient = mock(TableClient.class);
-//        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient",  tableServiceClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableName",  "errors");
-//
-//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient",  blobContainerClient);
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi",  pspApi);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize",  "10");
-//
-//        mockStatic(ErrorResponse.class);
-//        when(ErrorResponse.fromJson(anyString())).thenThrow(IOException.class);
-//
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(new ApiException(400, "", new HashMap<>(), "{ \""));
-//
-//        // execute logic
-//        Assertions.assertThrows(AppException.class,
-//                () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(0)).internalAddPayment(anyString(), anyString(), any());
-//    }
-//
-//    @Test
-//    @SneakyThrows
-//    void runKo_pspErrorResponseMalformed() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        TableClient tableClient = mock(TableClient.class);
-//        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableServiceClient", tableServiceClient);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "tableName", "errors");
-//
-//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "blobContainerClient", blobContainerClient);
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "pspApi", pspApi);
-//        Whitebox.setInternalState(FdrXmlToJson.class, "addPaymentRequestPartitionSize", "10");
-//
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(new ApiException(400, "", new HashMap<>(), "{ \"error\": \"OK\" }"));
-//
-//        // execute logic
-//        Assertions.assertThrows(AppException.class,
-//                () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(0)).internalAddPayment(anyString(), anyString(), any());
-//    }
-//
-//}
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.logging.Logger;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.stubbing.Answer;
+import org.openapitools.client.ApiException;
+import org.openapitools.client.api.InternalPspApi;
+
+import com.azure.core.util.IterableStream;
+import com.azure.data.tables.TableClient;
+import com.azure.data.tables.models.TableEntity;
+import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.HttpRequestMessage;
+import com.microsoft.azure.functions.HttpResponseMessage;
+import com.microsoft.azure.functions.HttpStatus;
+
+import it.gov.pagopa.fdrxmltojson.model.BlobData;
+import it.gov.pagopa.fdrxmltojson.util.FdR3ClientUtil;
+import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
+import uk.org.webcompere.systemstubs.jupiter.SystemStub;
+import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
+import util.FakeHttpResponseBuilder;
+import util.TestUtil;
+
+@ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
+class FdrXmlToJsonTest {
+
+	@InjectMocks
+	private FdrXmlError fdrXmlError;
+
+	@Mock
+	private ExecutionContext context;
+
+	@Mock
+	private HttpRequestMessage<Optional<String>> request;
+
+	@Mock
+	private Logger logger;
+
+	@Mock
+	private TableClient mockTableClient;
+
+	private MockedStatic<FdR3ClientUtil> mockFdR3ClientUtil;
+
+	private MockedStatic<StorageAccountUtil> mockStorageAccountUtil;
+
+	@SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
+
+	@BeforeEach
+	void setUp() throws ApiException {
+		// Simulate environment variables
+		environmentVariables.set("STORAGE_ACCOUNT_CONN_STRING", "UseDevelopmentStorage=true");
+		environmentVariables.set("FDR1_FLOW_BLOB_CONTAINER_NAME", "fake-fdr1-flow");
+		environmentVariables.set("ERROR_TABLE_NAME", "fake-fdr1-error");
+
+		when(context.getLogger()).thenReturn(logger);
+		lenient().when(context.getInvocationId()).thenReturn("test-invocation");
+
+		// Mock response builder
+		when(request.createResponseBuilder(any(HttpStatus.class)))
+		.thenAnswer(invocation -> new FakeHttpResponseBuilder().status(invocation.getArgument(0)));
+
+		// Mock static methods of StorageAccountUtil
+		mockStorageAccountUtil = mockStatic(StorageAccountUtil.class);
+		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+		mockStorageAccountUtil.when(() -> StorageAccountUtil.getBlobContent(anyString()))
+		.thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()
+				.fileName(invocation.getArgument(0))
+				.metadata(Map.of("sessionId", "fake-sessionId"))
+				.content(new byte[]{1, 2, 3})
+				.build());
+
+		// Mock table entities
+		List<TableEntity> entities = new ArrayList<>();
+		for (int i = 1; i <= 2; i++) {
+			TableEntity entity = new TableEntity("testPartition", "row" + i)
+					.addProperty("name", "EntityName" + i)
+					.addProperty("value", i * 10)
+					.addProperty("status", "active")
+					.addProperty("fileName", "fake-file-name")
+					.addProperty("fdr", "fake-fdr")
+					.addProperty("pspId", "fake-pspId");
+			entities.add(entity);
+		}
+		lenient().when(mockTableClient.listEntities())
+		.thenReturn(TestUtil.createPagedIterable(new IterableStream<>(entities)));
+
+		lenient().when(mockTableClient.getEntity(anyString(), anyString())).thenReturn(entities.get(0));
+
+		String responseBody="{\"httpStatusCode\":404,\"httpStatusDescription\":\"Not Found\",\"appErrorCode\":\"FDR-3001\",\"errors\":[{\"message\":\"Flow with ID [mock-flow-id] not found.\"}]}"; 
+		Map<String, List<String>> responseHeaders = new HashMap<>(){
+			private static final long serialVersionUID = 1L;
+		{
+			put("content-type", Arrays.asList("application/json", "charset=UTF-8"));
+		}};
+		ApiException apiException = new ApiException(404, responseHeaders, responseBody);
+		// Mock static methods of FdR3ClientUtil
+		InternalPspApi mockInternalPspApi = mock(InternalPspApi.class);
+		mockFdR3ClientUtil = mockStatic(FdR3ClientUtil.class);
+		mockFdR3ClientUtil.when(FdR3ClientUtil::getPspApi).thenReturn(mockInternalPspApi);
+		lenient().when(mockInternalPspApi.internalDelete(anyString(), anyString())).thenThrow(apiException);
+	}
+
+	@Test
+	void testRun_withValidPartitionAndRowKey() {
+		when(request.getQueryParameters()).thenReturn(Map.of("partitionKey", "testPartition", "rowKey", "testRow"));
+
+		HttpResponseMessage response = fdrXmlError.run(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatus());
+	}
+
+	@Test
+	void testRun_withoutPartitionAndRowKey() {
+		when(request.getQueryParameters()).thenReturn(Map.of());
+
+		HttpResponseMessage response = fdrXmlError.run(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatus());
+	}
+
+	@Test
+	void testRun_withException() {
+		when(request.getQueryParameters()).thenThrow(new RuntimeException("Test Exception"));
+
+		HttpResponseMessage response = fdrXmlError.run(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
+	}
+
+	@AfterEach
+	void tearDown() {
+		if (mockStorageAccountUtil != null) {
+			mockStorageAccountUtil.close();
+		}
+		if (mockFdR3ClientUtil != null) {
+			mockFdR3ClientUtil.close();
+		}
+	}
+}
