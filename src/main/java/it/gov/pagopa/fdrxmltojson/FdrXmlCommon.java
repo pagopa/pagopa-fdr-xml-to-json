@@ -30,7 +30,6 @@ import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
 
 public class FdrXmlCommon {
 
-	private static final Integer MAX_RETRY_COUNT = 5;
 	private static final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
 
 	private static final String PAYMENT_CHUNK_SIZE = System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE");
@@ -44,11 +43,6 @@ public class FdrXmlCommon {
 								 long retryAttempt) throws Exception {
 
 		logger = context.getLogger();
-
-//		TODO review alert
-//		if (retryAttempt == MAX_RETRY_COUNT) {
-//			logger.log(Level.WARNING, () -> String.format("[ALERT][FdrXmlToJson][LAST_RETRY] Performing last retry for blob processing: SessionId [%s], InvocationId [%s], File name: %s",  sessionId, context.getInvocationId(), fileName));
-//		}
 
 		logger.log(Level.INFO, () -> messageFormat(sessionId, context.getInvocationId(), null, fileName, "Performing blob processing [retry attempt %d]", retryAttempt));
 

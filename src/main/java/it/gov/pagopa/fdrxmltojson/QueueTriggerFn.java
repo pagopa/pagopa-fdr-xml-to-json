@@ -21,6 +21,8 @@ import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
 
 public class QueueTriggerFn {
 
+    private static final String MAX_RETRY_COUNT = System.getenv("MAX_RETRY_COUNT"); // it should be maxDequeueCount + 1
+
     private static Logger logger;
 
     /*
@@ -55,6 +57,11 @@ public class QueueTriggerFn {
             fdrXmlCommon.convertXmlToJson(context, sessionId, blobData.getContent(), blobData.getFileName(), dequeueCount);
         } catch (Exception e) {
             logger.log(Level.SEVERE, e, () -> messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "%s error [retry attempt: %s]", operation, dequeueCount));
+
+            if (dequeueCount ==  Long.parseLong(MAX_RETRY_COUNT) - 1) {
+                logger.log(Level.SEVERE, () -> messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "[ALERT][FdrXmlToJson][LAST_RETRY] Performed last retry for blob processing"));
+            }
+
             throw new Exception();
         }
 
