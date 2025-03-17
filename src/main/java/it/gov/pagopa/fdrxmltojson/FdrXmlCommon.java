@@ -102,12 +102,12 @@ public class FdrXmlCommon {
 				if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_FLOW_ALREADY_CREATED)) {
 					// error != FDR-3002
 					// save on table storage and send alert
-					logger.log(Level.SEVERE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s error [appErrorCode: %s]", operation, appErrorCode));
+					logger.log(Level.SEVERE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s error [appErrorCode: %s]", operation, Optional.ofNullable(appErrorCode).orElse("null")));
 
 					generateAlertAndSaveOnTable(
 							sessionId, invocationId, pspId, fdr, fileName,
 							ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_CREATE,
-							appErrorCode, String.valueOf(retryAttempt), e
+							Optional.ofNullable(appErrorCode).orElse("null"), String.valueOf(retryAttempt), e
 					);
 				}
 			}

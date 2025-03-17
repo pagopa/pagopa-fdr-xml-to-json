@@ -1,4 +1,4 @@
-package util;
+package it.gov.pagopa.fdrxmltojson.util;
 
 import java.util.HashMap;
 import java.util.Map;

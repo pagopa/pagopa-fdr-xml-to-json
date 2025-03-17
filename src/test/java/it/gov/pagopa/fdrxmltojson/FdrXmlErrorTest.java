@@ -43,8 +43,8 @@ import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
-import util.FakeHttpResponseBuilder;
-import util.TestUtil;
+import it.gov.pagopa.fdrxmltojson.util.FakeHttpResponseBuilder;
+import it.gov.pagopa.fdrxmltojson.util.TestUtil;
 
 @ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
 class FdrXmlErrorTest {
@@ -73,9 +73,7 @@ class FdrXmlErrorTest {
 	@BeforeEach
 	void setUp() throws ApiException {
 		// Simulate environment variables
-		environmentVariables.set("STORAGE_ACCOUNT_CONN_STRING", "UseDevelopmentStorage=true");
-		environmentVariables.set("FDR1_FLOW_BLOB_CONTAINER_NAME", "fake-fdr1-flow");
-		environmentVariables.set("ERROR_TABLE_NAME", "fake-fdr1-error");
+		TestUtil.setupEnvironmentVariables(environmentVariables);
 
 		when(context.getLogger()).thenReturn(logger);
 		lenient().when(context.getInvocationId()).thenReturn("test-invocation");

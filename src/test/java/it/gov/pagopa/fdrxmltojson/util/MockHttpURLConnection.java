@@ -1,4 +1,4 @@
-package util;
+package it.gov.pagopa.fdrxmltojson.util;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
