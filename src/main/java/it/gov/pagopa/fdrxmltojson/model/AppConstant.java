@@ -13,6 +13,7 @@ public class AppConstant {
     public static final String columnFieldStackTrace = "stackTrace";
     public static final String columnFieldRetryAttempt = "retryAttempt";
 
+    public static final String FDR_FLOW_NOT_FOUND = "FDR-3001";
     public static final String FDR_FLOW_ALREADY_CREATED = "FDR-3002";
     public static final String FDR_PAYMENT_ALREADY_ADDED = "FDR-3006";
 }
