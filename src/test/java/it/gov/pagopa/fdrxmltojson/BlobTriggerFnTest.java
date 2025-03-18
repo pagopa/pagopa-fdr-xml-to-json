@@ -428,6 +428,57 @@ class BlobTriggerFnTest {
 				() -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
 	}
 
+	@Test
+	@SneakyThrows
+	void runKo_pspHttpError_publish_apiException_400_notFound_1() {
+		// generating input
+		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+
+		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+
+		InternalPspApi pspApi = getPspApi();
+
+		GenericResponse genericResponse = new GenericResponse();
+		genericResponse.setMessage("OK");
+		when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
+		when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
+
+		String responseBody = "{\"httpStatusCode\":404,\"httpStatusDescription\":\"Not Found\",\"errors\":[\"message\":\"<detail.message>\"}]}";
+		ApiException apiException = new ApiException(404, "message", new HashMap<>(), responseBody);
+		when(pspApi.internalPublish(anyString(), anyString())).thenThrow(apiException);
+
+		// execute logic
+		blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context);
+
+		verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+		verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
+		verify(pspApi, times(1)).internalPublish(anyString(), anyString());
+	}
+
+	@Test
+	@SneakyThrows
+	void runKo_pspHttpError_publish_apiException_400_notFound_2() {
+		// generating input
+		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+
+		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+
+		InternalPspApi pspApi = getPspApi();
+
+		GenericResponse genericResponse = new GenericResponse();
+		genericResponse.setMessage("OK");
+		when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
+		when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
+
+		String responseBody = "{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"errors\":[{\"path\":\"<detail.path.if-exist>\",\"message\":\"<detail.message>\"}]}";
+		ApiException apiException = new ApiException(400, "message", new HashMap<>(), responseBody);
+		when(pspApi.internalPublish(anyString(), anyString())).thenThrow(apiException);
+
+		// execute logic
+		Assertions.assertThrows(AppException.class,
+				() -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+	}
+
 //    @Test
 //    @SneakyThrows
 //    void runKo_pspErrorResponse() {

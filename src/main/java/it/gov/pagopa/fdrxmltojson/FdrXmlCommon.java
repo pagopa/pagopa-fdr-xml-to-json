@@ -220,22 +220,9 @@ public class FdrXmlCommon {
 		throw new AppException(message, e);
 	}
 
-//	private String messageFormat(String sessionId, String invocationId, String pspId, String fileName, String message, Object... args) {
-//		String suffix = String.format(" [sessionId: %s][invocationId: %s][psp: %s][filename: %s]", sessionId, invocationId, pspId, fileName);
-//		return String.format(message, args) + suffix;
-//	}
-
 	private static String getHttpErrorMessage(ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String errorCode, Instant now){
 		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"][httpEventTypeEnum="+httpEventTypeEnum.name()+"][errorCode="+errorCode+"] Http error at "+ now;
 	}
-
-//	private static String getErrorMessage(ErrorEnum errorEnum, String fileName, Instant now) {
-//		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"] [fileName="+fileName+"] Http error at "+ now;
-//	}
-//
-//	private static void sendGenericError(Instant now, String sessionId, String invocationId, String fileName, String fdr, String pspId, ErrorEnum errorEnum, String retryAttempt, Exception e) {
-//		_sendToErrorTable(now, sessionId, invocationId, fileName, fdr, pspId, errorEnum, Optional.empty(),Optional.empty(), Optional.empty(), retryAttempt, e);
-//	}
 
 	private static void sendHttpError(Instant now, String sessionId, String invocationId, String fileName, String fdr, String pspId, ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String httpErrorResponse, String httpErrorCode, String retryAttempt, Exception e) {
 		_sendToErrorTable(now, sessionId, invocationId, fileName, fdr, pspId, errorEnum, Optional.ofNullable(httpEventTypeEnum), Optional.ofNullable(httpErrorResponse), Optional.of(httpErrorCode), retryAttempt, e);
