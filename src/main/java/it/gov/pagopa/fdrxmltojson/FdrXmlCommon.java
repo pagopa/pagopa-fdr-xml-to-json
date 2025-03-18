@@ -150,14 +150,14 @@ public class FdrXmlCommon {
 					generateAlertAndSaveOnTable(
 							sessionId, invocationId, pspId, fdr, fileName,
 							ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT,
-							appErrorCode, String.format("%d-%d", retryAttempt, internalRetry), e
+							Optional.ofNullable(appErrorCode).orElse("NA"), String.format("%d-%d", retryAttempt, internalRetry), e
 					);
 				}
 				else {
 					// case FDR_PAYMENT_ALREADY_ADDED
 					if (internalRetry < 2) {
 						ErrorResponse errorResponse = ErrorResponse.fromJson(e.getResponseBody());
-						if (!errorResponse.getErrors().isEmpty()) {
+						if (errorResponse.getErrors() != null && !errorResponse.getErrors().isEmpty()) {
 							String path = errorResponse.getErrors().get(0).getPath();
 							List<Long> indexes = Arrays.stream(path.replaceAll("[\\[\\] ]", "").split(","))
 									.map(Long::parseLong).toList();

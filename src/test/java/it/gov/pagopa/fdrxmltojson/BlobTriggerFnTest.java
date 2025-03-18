@@ -80,8 +80,6 @@ class BlobTriggerFnTest {
 		// generating input
 		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-//		InternalPspApi pspApi = mock(InternalPspApi.class);
-//		Whitebox.setInternalState(FdR3ClientUtil.class, "pspApi", pspApi);
 		InternalPspApi pspApi = getPspApi();
 
 		GenericResponse genericResponse = new GenericResponse();
@@ -196,7 +194,7 @@ class BlobTriggerFnTest {
 //
     @Test
     @SneakyThrows
-    void runKo_pspHttpError_genericException() {
+    void runKo_pspHttpError_create_genericException() {
 		// generating input
 		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
@@ -213,7 +211,7 @@ class BlobTriggerFnTest {
 
 	@Test
 	@SneakyThrows
-	void runKo_pspHttpError_apiException_400_appErrorCodeValid() {
+	void runKo_pspHttpError_create_apiException_400_appErrorCodeValid() {
 		// generating input
 		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
@@ -235,7 +233,7 @@ class BlobTriggerFnTest {
 
 	@Test
 	@SneakyThrows
-	void runKo_pspHttpError_apiException_400_noAppErrorCode() {
+	void runKo_pspHttpError_create_apiException_400_noAppErrorCode() {
 		// generating input
 		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
@@ -254,7 +252,7 @@ class BlobTriggerFnTest {
 
 	@Test
 	@SneakyThrows
-	void runKo_pspHttpError_apiException_400_appErrorCodeNotValid() {
+	void runKo_pspHttpError_create_apiException_400_appErrorCodeNotValid() {
 		// generating input
 		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
@@ -273,7 +271,7 @@ class BlobTriggerFnTest {
 
 	@Test
 	@SneakyThrows
-	void runKo_pspHttpError_apiException_404() {
+	void runKo_pspHttpError_create_apiException_404() {
 		// generating input
 		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
@@ -285,6 +283,145 @@ class BlobTriggerFnTest {
 		Whitebox.setInternalState(apiException, "code", 404);
 
 		when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(apiException);
+
+		// execute logic
+		Assertions.assertThrows(AppException.class,
+				() -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+	}
+
+	@Test
+	@SneakyThrows
+	void runKo_pspHttpError_add_genericException() {
+		// generating input
+		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+
+		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+
+		InternalPspApi pspApi = getPspApi();
+
+		GenericResponse genericResponse = new GenericResponse();
+		genericResponse.setMessage("OK");
+
+		when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
+		when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenThrow(new ApiException("Test Exception"));
+
+		// execute logic
+		Assertions.assertThrows(AppException.class,
+				() -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+	}
+
+	@Test
+	@SneakyThrows
+	void runKo_pspHttpError_add_apiException_400_appErrorCodeNotValid() {
+		// generating input
+		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+
+		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+
+		InternalPspApi pspApi = getPspApi();
+
+		GenericResponse genericResponse = new GenericResponse();
+		genericResponse.setMessage("OK");
+		when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
+
+		String responseBody = String.format("{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"appErrorCode\":\"%s\",\"errors\":[{\"path\":\"[1]\",\"message\":\"<detail.message>\"}]}", AppConstant.FDR_FLOW_NOT_FOUND);
+		ApiException apiException = new ApiException(400, "message", new HashMap<>(), responseBody);
+		when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenThrow(apiException);
+
+		// execute logic
+		Assertions.assertThrows(AppException.class,
+				() -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+	}
+
+	@Test
+	@SneakyThrows
+	void runKo_pspHttpError_add_apiException_400_noAppErrorCode() {
+		// generating input
+		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+
+		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+
+		InternalPspApi pspApi = getPspApi();
+
+		GenericResponse genericResponse = new GenericResponse();
+		genericResponse.setMessage("OK");
+		when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
+
+		String responseBody = "{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"errors\":[{\"path\":\"<detail.path.if-exist>\",\"message\":\"<detail.message>\"}]}";
+		ApiException apiException = new ApiException(400, "message", new HashMap<>(), responseBody);
+		when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenThrow(apiException);
+
+		// execute logic
+		Assertions.assertThrows(AppException.class,
+				() -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+	}
+
+	@Test
+	@SneakyThrows
+	void runKo_pspHttpError_add_apiException_400_appErrorCodeValid_1() {
+		// generating input
+		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+
+		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+
+		InternalPspApi pspApi = getPspApi();
+
+		GenericResponse genericResponse = new GenericResponse();
+		genericResponse.setMessage("OK");
+		when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
+
+		String responseBody = String.format("{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"appErrorCode\":\"%s\",\"errors\":[{\"path\":\"[1]\",\"message\":\"<detail.message>\"}]}", AppConstant.FDR_PAYMENT_ALREADY_ADDED);
+		ApiException apiException = new ApiException(400, "message", new HashMap<>(), responseBody);
+		when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenThrow(apiException);
+
+		// execute logic
+		blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context);
+
+		verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+		verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
+		verify(pspApi, times(1)).internalPublish(anyString(), anyString());
+	}
+
+	@Test
+	@SneakyThrows
+	void runKo_pspHttpError_add_apiException_400_appErrorCodeValid_2() {
+		// generating input
+		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione_morePayments.xml");
+
+		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+
+		InternalPspApi pspApi = getPspApi();
+
+		GenericResponse genericResponse = new GenericResponse();
+		genericResponse.setMessage("OK");
+		when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
+
+		String responseBody = String.format("{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"appErrorCode\":\"%s\",\"errors\":[{\"path\":\"[1]\",\"message\":\"<detail.message>\"}]}", AppConstant.FDR_PAYMENT_ALREADY_ADDED);
+		ApiException apiException = new ApiException(400, "message", new HashMap<>(), responseBody);
+		when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenThrow(apiException);
+
+		// execute logic
+		Assertions.assertThrows(AppException.class,
+				() -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+	}
+
+	@Test
+	@SneakyThrows
+	void runKo_pspHttpError_add_apiException_400_appErrorCodeValid_3() {
+		// generating input
+		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione_morePayments.xml");
+
+		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+
+		InternalPspApi pspApi = getPspApi();
+
+		GenericResponse genericResponse = new GenericResponse();
+		genericResponse.setMessage("OK");
+		when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
+
+		String responseBody = String.format("{\"httpStatusCode\": 400,\"httpStatusDescription\": \"Bad Request\",\"appErrorCode\": \"%s\"}", AppConstant.FDR_PAYMENT_ALREADY_ADDED);
+		ApiException apiException = new ApiException(400, "message", new HashMap<>(), responseBody);
+		when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenThrow(apiException);
 
 		// execute logic
 		Assertions.assertThrows(AppException.class,
