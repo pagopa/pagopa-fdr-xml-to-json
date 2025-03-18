@@ -109,7 +109,7 @@ class FdrXmlErrorTest {
 
 		lenient().when(mockTableClient.getEntity(anyString(), anyString())).thenReturn(entities.get(0));
 
-		String responseBody="{\"httpStatusCode\":404,\"httpStatusDescription\":\"Not Found\",\"appErrorCode\":\"FDR-3001\",\"errors\":[{\"message\":\"Flow with ID [mock-flow-id] not found.\"}]}"; 
+		String responseBody="{\"httpStatusCode\":404,\"httpStatusDescription\":\"Not Found\",\"appErrorCode\":\"FDR-3001\",\"errors\":[{\"message\":\"Flow with ID [mock-flow-id] not found.\"}]}";
 		Map<String, List<String>> responseHeaders = new HashMap<>(){
 			private static final long serialVersionUID = 1L;
 		{
@@ -121,6 +121,18 @@ class FdrXmlErrorTest {
 		mockFdR3ClientUtil = mockStatic(FdR3ClientUtil.class);
 		mockFdR3ClientUtil.when(FdR3ClientUtil::getPspApi).thenReturn(mockInternalPspApi);
 		lenient().when(mockInternalPspApi.internalDelete(anyString(), anyString())).thenThrow(apiException);
+	}
+
+	@AfterEach
+	void tearDown() {
+		if (mockStorageAccountUtil != null) {
+			mockStorageAccountUtil.close();
+		}
+		if (mockFdR3ClientUtil != null) {
+			mockFdR3ClientUtil.close();
+		}
+
+		TestUtil.resetEnvironmentVariables(environmentVariables);
 	}
 
 	@Test
@@ -151,15 +163,5 @@ class FdrXmlErrorTest {
 
 		assertNotNull(response);
 		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
-	}
-
-	@AfterEach
-	void tearDown() {
-		if (mockStorageAccountUtil != null) {
-			mockStorageAccountUtil.close();
-		}
-		if (mockFdR3ClientUtil != null) {
-			mockFdR3ClientUtil.close();
-		}
 	}
 }

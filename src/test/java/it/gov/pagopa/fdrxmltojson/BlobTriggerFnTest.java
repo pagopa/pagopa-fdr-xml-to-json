@@ -1,6 +1,5 @@
 package it.gov.pagopa.fdrxmltojson;
 import com.azure.data.tables.TableClient;
-import com.azure.data.tables.TableServiceClient;
 import com.microsoft.azure.functions.ExecutionContext;
 import it.gov.pagopa.fdrxmltojson.model.AppConstant;
 import it.gov.pagopa.fdrxmltojson.util.AppException;
@@ -45,9 +44,6 @@ class BlobTriggerFnTest {
 	@Mock
 	private TableClient mockTableClient;
 
-//	@Mock
-//	private TableClient mockTableClient;
-
 	@SystemStub
 	private EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
@@ -56,7 +52,7 @@ class BlobTriggerFnTest {
 	private static final Logger logger = Logger.getLogger("BlobTriggerFn-test-logger");
 
 	@BeforeEach
-	void setUp() throws ApiException {
+	void setUp() {
 		TestUtil.setupEnvironmentVariables(environmentVariables);
 
 		when(context.getLogger()).thenReturn(logger);
@@ -72,6 +68,7 @@ class BlobTriggerFnTest {
 		if (mockStorageAccountUtil != null) {
 			mockStorageAccountUtil.close();
 		}
+		TestUtil.resetEnvironmentVariables(environmentVariables);
 	}
 
 	@Test
@@ -96,102 +93,6 @@ class BlobTriggerFnTest {
 		verify(pspApi, times(1)).internalPublish(anyString(), anyString());
 	}
 
-//    @Test
-//    @SneakyThrows
-//    void runKo_maxRetryCount() {
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//		byte[] content = TestUtil.gzipCompress(xml.getBytes(StandardCharsets.UTF_8));
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "pspApi",  pspApi);
-//
-//        GenericResponse genericResponse = new GenericResponse();
-//        genericResponse.setMessage("OK");
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
-//
-//        Whitebox.setInternalState(BlobTriggerFn.class, "MAX_RETRY_COUNT",  -1);
-//
-//		// execute logic
-//		blobTriggerFn.run(content, UUID.randomUUID().toString(), getMetadata(), context);
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalPublish(anyString(), anyString());
-//    }
-
-//    @Test
-//    @SneakyThrows
-//    void runKo_errorBlobContainerLoad() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "tableServiceClient",  tableServiceClient);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "tableName",  "errors");
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "pspApi",  pspApi);
-//
-//        GenericResponse genericResponse = new GenericResponse();
-//        genericResponse.setMessage("OK");
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
-//
-//        Whitebox.setInternalState(BlobTriggerFn.class, "MAX_RETRY_COUNT",  -1);
-//
-//		// execute logic
-//        Assertions.assertThrows(Exception.class,
-//                () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalPublish(anyString(), anyString());
-//    }
-//
-//    @Test
-//    @SneakyThrows
-//    void runKo_errorBlobContainerDelete() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        TableClient tableClient = mock(TableClient.class);
-//        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "tableServiceClient",  tableServiceClient);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "tableName",  "errors");
-//
-//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "blobContainerClient",  blobContainerClient);
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "pspApi",  pspApi);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "addPaymentRequestPartitionSize",  "10");
-//
-//        GenericResponse genericResponse = new GenericResponse();
-//        genericResponse.setMessage("OK");
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
-//        when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
-//
-//        // execute logic
-//        Assertions.assertThrows(Exception.class,
-//                () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
-//        verify(pspApi, times(1)).internalPublish(anyString(), anyString());
-//    }
-//
     @Test
     @SneakyThrows
     void runKo_pspHttpError_create_genericException() {
@@ -478,73 +379,6 @@ class BlobTriggerFnTest {
 		Assertions.assertThrows(AppException.class,
 				() -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
 	}
-
-//    @Test
-//    @SneakyThrows
-//    void runKo_pspErrorResponse() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        TableClient tableClient = mock(TableClient.class);
-//        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "tableServiceClient",  tableServiceClient);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "tableName",  "errors");
-//
-//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "blobContainerClient",  blobContainerClient);
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "pspApi",  pspApi);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "addPaymentRequestPartitionSize",  "10");
-//
-//        mockStatic(ErrorResponse.class);
-//        when(ErrorResponse.fromJson(anyString())).thenThrow(IOException.class);
-//
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(new ApiException(400, "", new HashMap<>(), "{ \""));
-//
-//        // execute logic
-//        Assertions.assertThrows(AppException.class,
-//                () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(0)).internalAddPayment(anyString(), anyString(), any());
-//    }
-//
-//    @Test
-//    @SneakyThrows
-//    void runKo_pspErrorResponseMalformed() {
-//        // mocking objects
-//        when(context.getLogger()).thenReturn(logger);
-//
-//        TableServiceClient tableServiceClient = mock(TableServiceClient.class);
-//        TableClient tableClient = mock(TableClient.class);
-//        when(tableServiceClient.getTableClient(anyString())).thenReturn(tableClient);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "tableServiceClient", tableServiceClient);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "tableName", "errors");
-//
-//        BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "blobContainerClient", blobContainerClient);
-//
-//        // generating input
-//        String xml = TestUtil.readStringFromFile("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-//
-//        InternalPspApi pspApi = mock(InternalPspApi.class);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "pspApi", pspApi);
-//        Whitebox.setInternalState(BlobTriggerFn.class, "addPaymentRequestPartitionSize", "10");
-//
-//        when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(new ApiException(400, "", new HashMap<>(), "{ \"error\": \"OK\" }"));
-//
-//        // execute logic
-//        Assertions.assertThrows(AppException.class,
-//                () -> fdrXmlToJson.processNodoReEvent(xml.getBytes(StandardCharsets.UTF_8), UUID.randomUUID().toString(), context));
-//
-//        verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-//        verify(pspApi, times(0)).internalAddPayment(anyString(), anyString(), any());
-//    }
 
 	private byte[] getFileContent(String fileName) throws IOException {
 		String xml = TestUtil.readStringFromFile(fileName);

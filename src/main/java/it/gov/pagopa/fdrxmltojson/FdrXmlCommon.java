@@ -32,8 +32,6 @@ public class FdrXmlCommon {
 
 	private static final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
 
-	private static final String PAYMENT_CHUNK_SIZE = System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE");
-
 	private static Logger logger;
 
 	public void convertXmlToJson(ExecutionContext context,
@@ -125,7 +123,7 @@ public class FdrXmlCommon {
 	private void addFdRPayments(String sessionId, String invocationId, String fileName,
 								String fdr, String pspId, CtFlussoRiversamento ctFlussoRiversamento, long retryAttempt) throws IOException {
 		List<CtDatiSingoliPagamenti> datiSingoliPagamenti = ctFlussoRiversamento.getDatiSingoliPagamenti();
-		int chunkSize = Integer.parseInt(PAYMENT_CHUNK_SIZE);
+		int chunkSize = getPaymentChunkSize();
 		FdR3ClientUtil fdR3ClientUtil = new FdR3ClientUtil();
 		List<AddPaymentRequest> addPaymentRequestList = fdR3ClientUtil.getAddPaymentRequestListChunked(datiSingoliPagamenti, chunkSize);
 		// call addPayment FDR for each partition
@@ -248,6 +246,10 @@ public class FdrXmlCommon {
 		TableEntity entity = new TableEntity(partitionKey, invocationId);
 		entity.setProperties(errorMap);
 		tableClient.createEntity(entity);
+	}
+
+	private Integer getPaymentChunkSize() {
+		return Integer.parseInt(System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE"));
 	}
 
 }

@@ -10,7 +10,6 @@ import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
 import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.model.QueueMessage;
-import it.gov.pagopa.fdrxmltojson.util.AppException;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
 
 import java.util.Optional;
@@ -24,6 +23,12 @@ public class QueueTriggerFn {
     private static final String MAX_RETRY_COUNT = System.getenv("MAX_RETRY_COUNT"); // it should be maxDequeueCount + 1
 
     private static Logger logger;
+
+    private final FdrXmlCommon fdrXmlCommon;
+
+    public QueueTriggerFn(FdrXmlCommon fdrXmlCommon) {
+        this.fdrXmlCommon = fdrXmlCommon;
+    }
 
     /*
 	Executing this Azure Function in exponential retry, with steps:
@@ -51,7 +56,7 @@ public class QueueTriggerFn {
         QueueMessage queueMessage = objectMapper.readValue(message, QueueMessage.class);
 
         BlobData blobData = StorageAccountUtil.getBlobContent(queueMessage.getFileName());
-        FdrXmlCommon fdrXmlCommon = new FdrXmlCommon();
+//        FdrXmlCommon fdrXmlCommon = new FdrXmlCommon();
         String sessionId = Optional.ofNullable(blobData.getMetadata().get("sessionId")).orElse("NA");
         try {
             fdrXmlCommon.convertXmlToJson(context, sessionId, blobData.getContent(), blobData.getFileName(), dequeueCount);

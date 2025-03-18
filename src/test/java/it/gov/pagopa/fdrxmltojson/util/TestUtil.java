@@ -32,12 +32,6 @@ import static org.mockito.Mockito.*;
 
 @UtilityClass
 public class TestUtil {
-
-//    @Mock
-//    private TableClient mockTableClient;
-
-    private static final Logger logger = Logger.getLogger("FdR-XML-to-JSON-test-logger");
-
     public static void setupEnvironmentVariables(EnvironmentVariables environmentVariables) {
 
         // Simulate environment variables
@@ -49,17 +43,15 @@ public class TestUtil {
         environmentVariables.set("FDR_NEW_API_KEY", "fdr3-internal-subscription-key");
     }
 
-//    public static void setupStorageAccount(MockedStatic<StorageAccountUtil> mockStorageAccountUtil) {
-//        // Mock static methods of StorageAccountUtil
-//        mockStorageAccountUtil = mockStatic(StorageAccountUtil.class);
-//        mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-//        mockStorageAccountUtil.when(() -> StorageAccountUtil.getBlobContent(anyString()))
-//                .thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()
-//                        .fileName(invocation.getArgument(0))
-//                        .metadata(Map.of("sessionId", "fake-sessionId"))
-//                        .content(new byte[]{1, 2, 3})
-//                        .build());
-//    }
+    public static void resetEnvironmentVariables(EnvironmentVariables environmentVariables) {
+        // Reset to default or empty values
+        environmentVariables.set("STORAGE_ACCOUNT_CONN_STRING", null);
+        environmentVariables.set("FDR1_FLOW_BLOB_CONTAINER_NAME", null);
+        environmentVariables.set("ERROR_TABLE_NAME", null);
+        environmentVariables.set("ADD_PAYMENT_REQUEST_PARTITION_SIZE", null);
+        environmentVariables.set("FDR_NEW_BASE_URL", null);
+        environmentVariables.set("FDR_NEW_API_KEY", null);
+    }
 
     public String readStringFromFile(String relativePath) throws IOException {
         ClassLoader classLoader = TestUtil.class.getClassLoader();
