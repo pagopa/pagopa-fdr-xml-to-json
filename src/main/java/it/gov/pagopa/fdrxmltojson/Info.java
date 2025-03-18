@@ -25,9 +25,9 @@ public class Info {
 	@FunctionName("Info")
 	public HttpResponseMessage run (
 			@HttpTrigger(name = "InfoTrigger",
-			methods = {HttpMethod.GET},
-			route = "info",
-			authLevel = AuthorizationLevel.ANONYMOUS) HttpRequestMessage<Optional<String>> request,
+					methods = {HttpMethod.GET},
+					route = "info",
+					authLevel = AuthorizationLevel.ANONYMOUS) HttpRequestMessage<Optional<String>> request,
 			final ExecutionContext context) {
 
 		return request
