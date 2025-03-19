@@ -56,7 +56,7 @@ public class QueueTriggerFn {
         QueueMessage queueMessage = objectMapper.readValue(message, QueueMessage.class);
 
         BlobData blobData = StorageAccountUtil.getBlobContent(queueMessage.getFileName());
-//        FdrXmlCommon fdrXmlCommon = new FdrXmlCommon();
+
         String sessionId = Optional.ofNullable(blobData.getMetadata().get("sessionId")).orElse("NA");
         try {
             fdrXmlCommon.convertXmlToJson(context, sessionId, blobData.getContent(), blobData.getFileName(), dequeueCount);
