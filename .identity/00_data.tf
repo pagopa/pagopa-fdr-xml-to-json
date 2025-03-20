@@ -1,16 +1,16 @@
-data "azurerm_storage_account" "tf_storage_account"{
-  name                = "pagopainfraterraform${var.env}"
-  resource_group_name = "io-infra-rg"
-}
+# data "azurerm_storage_account" "tf_storage_account"{
+#   name                = "pagopainfraterraform${var.env}"
+#   resource_group_name = "io-infra-rg"
+# }
 
-data "azurerm_resource_group" "dashboards" {
-  name = "dashboards"
-}
+# data "azurerm_resource_group" "dashboards" {
+#   name = "dashboards"
+# }
 
-data "azurerm_kubernetes_cluster" "aks" {
-  name                = local.aks_cluster.name
-  resource_group_name = local.aks_cluster.resource_group_name
-}
+# data "azurerm_kubernetes_cluster" "aks" {
+#   name                = local.aks_cluster.name
+#   resource_group_name = local.aks_cluster.resource_group_name
+# }
 
 data "github_organization_teams" "all" {
   root_teams_only = true
@@ -42,9 +42,9 @@ data "azurerm_key_vault_secret" "key_vault_deploy_slack_webhook" {
   key_vault_id = data.azurerm_key_vault.domain_key_vault.id
 }
 
-data "azurerm_resource_group" "fdr_rg" {
-  name  = "pagopa-${var.env_short}-${local.location_short}-fdr-rg"
-}
+# data "azurerm_resource_group" "fdr_rg" {
+#   name  = "pagopa-${var.env_short}-${local.location_short}-fdr-rg"
+# }
 
 data "azurerm_user_assigned_identity" "workload_identity_clientid" {
   name                = "fdr-workload-identity"
