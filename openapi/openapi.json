@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "Azure Functions API",
-    "version": "1.0.1-5-PAGOPA-2470-fix",
+    "version": "1.0.1-6-PAGOPA-2470-fix",
     "description": "API specification for Azure Functions XmlErrorRetry and Info"
   },
   "paths": {
