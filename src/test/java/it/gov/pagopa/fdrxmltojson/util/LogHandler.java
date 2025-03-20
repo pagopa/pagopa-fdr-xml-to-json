@@ -1,4 +1,4 @@
-package util;
+package it.gov.pagopa.fdrxmltojson.util;
 
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;

@@ -11,13 +11,23 @@
     },
     "http": {
       "routePrefix": ""
+    },
+    "blobs": {
+      "poisonBlobThreshold": 1
+    },
+    "queues": {
+      "batchSize": 1,
+      "maxDequeueCount": 4,
+      "visibilityTimeout" : "00:00:30"
+
     }
   },
-  "functions": [ "Info", "BlobFdrXmlToJsonEventProcessor", "XmlErrorRetry" ],
+  "functions": [ "Info", "BlobEventProcessor", "QueueEventProcessor", "XmlErrorRetry" ],
   "logging": {
     "logLevel": {
       "default": "Error",
-      "Function.BlobFdrXmlToJsonEventProcessor": "Information",
+      "Function.BlobEventProcessor": "Information",
+      "Function.QueueEventProcessor": "Information",
       "Function.XmlErrorRetry": "Information"
     },
     "applicationInsights": {

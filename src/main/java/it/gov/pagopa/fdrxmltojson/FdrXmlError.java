@@ -1,27 +1,28 @@
 package it.gov.pagopa.fdrxmltojson;
 
-import com.azure.core.util.BinaryData;
 import com.azure.data.tables.TableClient;
-import com.azure.data.tables.TableServiceClient;
-import com.azure.data.tables.TableServiceClientBuilder;
 import com.azure.data.tables.models.TableEntity;
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.data.tables.models.TableServiceException;
 import com.microsoft.azure.functions.*;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import it.gov.pagopa.fdrxmltojson.model.AppConstant;
+import it.gov.pagopa.fdrxmltojson.model.BlobData;
+import it.gov.pagopa.fdrxmltojson.util.FdR3ClientUtil;
+import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.openapitools.client.ApiClient;
 import org.openapitools.client.ApiException;
-import org.openapitools.client.api.InternalPspApi;
+import org.openapitools.client.model.ErrorResponse;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
 
 
 /**
@@ -29,44 +30,9 @@ import java.util.logging.Logger;
  */
 public class FdrXmlError {
 
-	private static final String fdrNewBaseUrl = System.getenv("FDR_NEW_BASE_URL");
-	private static final String fdrNewApiKey = System.getenv("FDR_NEW_API_KEY");
-	private static final String tableStorageConnString = System.getenv("TABLE_STORAGE_CONN_STRING");
-	private static final String tableName = System.getenv("TABLE_STORAGE_TABLE_NAME");
+	private String operation = "XmlErrorRetry ";
 
-	private static final String storageConnString = System.getenv("STORAGE_ACCOUNT_CONN_STRING");
-	private static final String blobContainerName = System.getenv("BLOB_CONTAINER_NAME");
-	private static TableServiceClient tableServiceClient = null;
-	private static InternalPspApi pspApi = null;
-	private static BlobContainerClient blobContainerClient;
 
-	private static TableServiceClient getTableServiceClient(){
-		if(tableServiceClient==null){
-			tableServiceClient = new TableServiceClientBuilder()
-					.connectionString(tableStorageConnString)
-					.buildClient();
-			tableServiceClient.createTableIfNotExists(tableName);
-		}
-		return tableServiceClient;
-	}
-
-	private static InternalPspApi getPspApi(){
-		if(pspApi==null){
-			ApiClient apiClient = new ApiClient();
-			apiClient.setApiKey(fdrNewApiKey);
-			pspApi = new InternalPspApi(apiClient);
-			pspApi.setCustomBaseUrl(fdrNewBaseUrl);
-		}
-		return pspApi;
-	}
-
-	private static BlobContainerClient getBlobContainerClient(){
-		if(blobContainerClient==null){
-			BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(storageConnString).buildClient();
-			blobContainerClient = blobServiceClient.createBlobContainerIfNotExists(blobContainerName);
-		}
-		return blobContainerClient;
-	}
 	@FunctionName("XmlErrorRetry")
 	public HttpResponseMessage run (
 			@HttpTrigger(name = "XmlErrorRetryTrigger",
@@ -76,77 +42,98 @@ public class FdrXmlError {
 			final ExecutionContext context) {
 
 		Logger logger = context.getLogger();
+		String triggeredAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+		operation = String.format("%s triggered at %s",  operation, triggeredAt);
+
+		logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", operation));
 
 		try{
 			String partitionKey = request.getQueryParameters().get("partitionKey");
 			String rowKey = request.getQueryParameters().get("rowKey");
-			boolean deleteOnlyByKey = Boolean.parseBoolean(request.getQueryParameters().get("deleteOnlyByKey"));
-			TableClient tableClient = getTableServiceClient().getTableClient(tableName);
-			String message = null;
-			if(partitionKey != null && rowKey != null){
-				message = "Retrieve a single entity with [partitionKey="+partitionKey+"] [rowKey="+rowKey+"]";
-				logger.info(message);
-				TableEntity tableEntity = tableClient.getEntity(partitionKey, rowKey);
-				process(logger, tableClient, tableEntity, deleteOnlyByKey);
+
+			HttpResponseMessage response;
+
+			if(partitionKey != null && rowKey != null) {
+				response = processEntity(context, request, partitionKey, rowKey);
 			} else {
-				message = "Retrieve all entity";
-				logger.info(message);
-				Iterator<TableEntity> itr = tableClient.listEntities().iterator();
-				while (itr.hasNext()) {
-					TableEntity tableEntity = itr.next();
-					process(logger, tableClient, tableEntity, false);
-				}
+				response = processAllEntities(context, request);
 			}
-			logger.info("Done processing events");
-			return request
-					.createResponseBuilder(HttpStatus.OK)
-					.body(" SUCCESS. "+message)
-					.build();
+
+			if (response == null) {
+				logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s executed", operation));
+				response = request.createResponseBuilder(HttpStatus.OK).body(HttpStatus.OK.toString()).build();
+			}
+
+			return response;
+
 		} catch (Exception e) {
-			logger.log(Level.SEVERE, "[ALERT] Generic error at "+Instant.now(), e);
+			logger.log(Level.SEVERE, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s error: %s", operation, e.getMessage()));
+
 			return request
 					.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body("FAILED. "+ExceptionUtils.getStackTrace(e))
+					.body(HttpStatus.INTERNAL_SERVER_ERROR + ": " + ExceptionUtils.getStackTrace(e))
 					.build();
 		}
 	}
 
+	private HttpResponseMessage processEntity(ExecutionContext context, HttpRequestMessage<Optional<String>> request,
+			String partitionKey, String rowKey) throws Exception {
 
-	private static void process(Logger logger, TableClient tableClient, TableEntity tableEntity, boolean deleteOnlyByKey) {
-		//cancella da FDR
-		String fdr = (String)tableEntity.getProperty(AppConstant.columnFieldFdr);
-		String pspId = (String)tableEntity.getProperty(AppConstant.columnFieldPspId);
-		logger.info("Process fdr=["+fdr+"], pspId=["+pspId+"]");
+		Logger logger = context.getLogger();
+
+		TableClient tableClient = StorageAccountUtil.getTableClient();
+
+		TableEntity tableEntity;
 		try {
-			logger.info("Calling... internalDelete");
-			getPspApi().internalDelete(fdr, pspId);
-		} catch (ApiException e){
-			logger.severe("Failed internalDelete. "+e.getResponseBody());
-			//non faccio nulla perchè potrebbe essere che non esiste  e quindi è già fixato
+			tableEntity = tableClient.getEntity(partitionKey, rowKey);
+		} catch (TableServiceException e) {
+			return request
+					.createResponseBuilder(HttpStatus.NOT_FOUND)
+					.body(HttpStatus.NOT_FOUND + ": " + String.format("Table entity with partitionKey=%s and rowKey=%s not found", partitionKey, rowKey))
+					.build();
 		}
 
-		// se errore è DELETE_BLOB_ERROR cancella solo il blob
-		// altriemnti emulo una modifica per far triggerare l'altra function
-		ErrorEnum errorEnum = ErrorEnum.valueOf((String)tableEntity.getProperty(AppConstant.columnFieldErrorType));
-		String fileName = (String)tableEntity.getProperty(AppConstant.columnFieldFileName);
-		if(ErrorEnum.DELETE_BLOB_ERROR == errorEnum){
-			logger.info("Delete only blob");
-			getBlobContainerClient().getBlobClient(fileName).delete();
-		} else {
-			if(deleteOnlyByKey){
-				logger.info("NOT Modify trick for start trigger, delete only");
-				getBlobContainerClient().getBlobClient(fileName).delete();
+		String fileName  = (String) tableEntity.getProperty(AppConstant.columnFieldFileName);
+		String fdr       = (String) tableEntity.getProperty(AppConstant.columnFieldFdr);
+		String pspId     = (String) tableEntity.getProperty(AppConstant.columnFieldPspId);
+
+		BlobData blobData = StorageAccountUtil.getBlobContent(fileName);
+		byte[] content = blobData.getContent();
+		String sessionId = blobData.getMetadata().get(AppConstant.columnFieldSessionId);
+		
+		// retryAttempt to 0 because it is an external call
+		new FdrXmlCommon().convertXmlToJson(context, sessionId, content, fileName, 0);
+
+		try {
+			FdR3ClientUtil.getPspApi().internalDelete(fdr, pspId);  // clears the entire stream from FDR
+		} catch (ApiException e) {
+			String appErrorCode = ErrorResponse.fromJson(e.getResponseBody()).getAppErrorCode();
+			if (e.getCode() == HttpStatus.NOT_FOUND.value() && AppConstant.FDR_FLOW_NOT_FOUND.equalsIgnoreCase(appErrorCode)) {
+				logger.log(Level.WARNING, () -> messageFormat(sessionId, context.getInvocationId(), pspId, fileName, "%s - InternalDelete failed %s", operation, e.getResponseBody()));
+				// anomaly is logged, no action is taken because the entity might not exist, meaning the issue is already resolved.
 			} else {
-				logger.info("Modify trick for start trigger");
-				BinaryData binaryData = getBlobContainerClient().getBlobClient(fileName).downloadContent();
-				getBlobContainerClient().getBlobClient(fileName).upload(binaryData, true);
+				HttpStatus status = HttpStatus.valueOf(e.getCode());
+				return request
+						.createResponseBuilder(status)
+						.body(status.toString() + String.format("Failed internalDelete call with fdr=%s and pspId=%s: %s", fdr, pspId, e.getResponseBody()))
+						.build();
 			}
 		}
 
-		//cancello la riga degli errori
-		logger.info("Delete row from error table");
 		tableClient.deleteEntity(tableEntity);
+
+		return null;
 	}
 
-
+	private HttpResponseMessage processAllEntities(ExecutionContext context, HttpRequestMessage<Optional<String>> request) throws Exception {
+		TableClient tableClient = StorageAccountUtil.getTableClient();
+		Iterator<TableEntity> itr = tableClient.listEntities().iterator();
+		while (itr.hasNext()) {
+			HttpResponseMessage response = processEntity(context, request, itr.next().getPartitionKey(), itr.next().getRowKey());
+			if (response != null) {
+				return response;
+			}
+		}
+		return null;
+	}
 }

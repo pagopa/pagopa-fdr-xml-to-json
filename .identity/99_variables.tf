@@ -17,8 +17,8 @@ locals {
   }
 
   container_app_environment = {
-    name           = "${local.prefix}-${var.env_short}-${local.location_short}-github-runner-cae",
-    resource_group = "${local.prefix}-${var.env_short}-${local.location_short}-github-runner-rg",
+    name           = "${local.prefix}-${var.env_short}-${local.location_short}-core-tools-cae",
+    resource_group = "${local.prefix}-${var.env_short}-${local.location_short}-core-tools-rg",
   }
 }
 
