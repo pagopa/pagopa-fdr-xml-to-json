@@ -78,8 +78,8 @@ microservice-chart:
     ERROR_TABLE_NAME: "fdr1conversionerror"
     BLOB_TRIGGER_POISON_QUEUE: "webjobs-blobtrigger-poison"
     FDR_NEW_BASE_URL: "https://api.dev.platform.pagopa.it/fdr-internal/service/v1"
-    ADD_PAYMENT_REQUEST_PARTITION_SIZE: 1000
-    MAX_RETRY_COUNT: 5
+    ADD_PAYMENT_REQUEST_PARTITION_SIZE: "1000"
+    MAX_RETRY_COUNT: "5"
     ASPNETCORE_URLS: "http://*:8080"
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
     AzureFunctionsWebHost__hostid: "fdr-xml-to-json"
