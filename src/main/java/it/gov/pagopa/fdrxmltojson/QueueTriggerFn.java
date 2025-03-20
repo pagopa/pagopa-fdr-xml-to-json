@@ -24,7 +24,11 @@ public class QueueTriggerFn {
 
     private static Logger logger;
 
-    private final FdrXmlCommon fdrXmlCommon;
+    private FdrXmlCommon fdrXmlCommon;
+
+    public QueueTriggerFn() {
+        fdrXmlCommon = new FdrXmlCommon();
+    }
 
     public QueueTriggerFn(FdrXmlCommon fdrXmlCommon) {
         this.fdrXmlCommon = fdrXmlCommon;
@@ -39,7 +43,7 @@ public class QueueTriggerFn {
 	- ...
 	 */
     @FunctionName("QueueEventProcessor")
-    @ExponentialBackoffRetry(maxRetryCount = 5, maximumInterval = "01:30:00", minimumInterval = "00:00:10")
+//    @ExponentialBackoffRetry(maxRetryCount = 5, maximumInterval = "01:30:00", minimumInterval = "00:00:10")
     public void run(
             @QueueTrigger(name = "queueTrigger",
                     connection = "STORAGE_ACCOUNT_CONN_STRING",
