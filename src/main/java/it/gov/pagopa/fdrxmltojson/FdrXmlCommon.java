@@ -157,16 +157,25 @@ public class FdrXmlCommon {
 						ErrorResponse errorResponse = ErrorResponse.fromJson(e.getResponseBody());
 						if (errorResponse.getErrors() != null && !errorResponse.getErrors().isEmpty()) {
 							String path = errorResponse.getErrors().get(0).getPath();
-							List<Long> indexes = Arrays.stream(path.replaceAll("[\\[\\] ]", "").split(","))
-									.map(Long::parseLong).toList();
-							List<Payment> paymentsFiltered = addPaymentRequest.getPayments().stream().filter(payment -> !indexes.contains(payment.getIndex())).toList();
-							if (!paymentsFiltered.isEmpty()) {
-								addPaymentRequest.setPayments(paymentsFiltered);
+							if (path != null) {
+								List<Long> indexes = Arrays.stream(path.replaceAll("[\\[\\] ]", "").split(","))
+										.map(Long::parseLong).toList();
+								List<Payment> paymentsFiltered = addPaymentRequest.getPayments().stream().filter(payment -> !indexes.contains(payment.getIndex())).toList();
+								if (!paymentsFiltered.isEmpty()) {
+									addPaymentRequest.setPayments(paymentsFiltered);
 
-								logger.log(Level.FINE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s try to send chunk without conflicting indexes", operation));
-								sendAddFdrPayments(sessionId, invocationId, fileName, fdr, pspId, addPaymentRequest, retryAttempt, internalRetry + 1);
-							} else {
-								logger.log(Level.FINE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s already added. Nothing to internalRetry", operation));
+									logger.log(Level.FINE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s try to send chunk without conflicting indexes", operation));
+									sendAddFdrPayments(sessionId, invocationId, fileName, fdr, pspId, addPaymentRequest, retryAttempt, internalRetry + 1);
+								} else {
+									logger.log(Level.FINE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s already added. Nothing to internalRetry", operation));
+								}
+							}
+							else {
+								generateAlertAndSaveOnTable(
+										sessionId, invocationId, pspId, fdr, fileName,
+										ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT_ERROR_RESPONSE_EMPTY,
+										appErrorCode, String.format("%d-%d. Path not found", retryAttempt, internalRetry), e
+								);
 							}
 						} else {
 							generateAlertAndSaveOnTable(
@@ -219,7 +228,7 @@ public class FdrXmlCommon {
 	}
 
 	private static String getHttpErrorMessage(ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String errorCode, Instant now){
-		return "[ALERT][FdrXmlToJson]["+errorEnum.name()+"][httpEventTypeEnum="+httpEventTypeEnum.name()+"][errorCode="+errorCode+"] Http error at "+ now;
+		return "[FdrXmlToJson]["+errorEnum.name()+"][httpEventTypeEnum="+httpEventTypeEnum.name()+"][errorCode="+errorCode+"] Http error at "+ now;
 	}
 
 	private static void sendHttpError(Instant now, String sessionId, String invocationId, String fileName, String fdr, String pspId, ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String httpErrorResponse, String httpErrorCode, String retryAttempt, Exception e) {
