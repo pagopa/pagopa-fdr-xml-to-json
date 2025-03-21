@@ -4,7 +4,7 @@ microservice-chart:
   fullnameOverride: "pagopa-fdr-xml-to-json"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-xml-to-json
-    tag: "1.0.1-7-PAGOPA-2470-fix"
+    tag: "1.0.1-8-PAGOPA-2470-fix"
     pullPolicy: Always
   livenessProbe:
     handlerType: tcpSocket
