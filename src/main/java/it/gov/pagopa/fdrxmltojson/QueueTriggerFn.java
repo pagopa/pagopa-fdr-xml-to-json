@@ -1,5 +1,10 @@
 package it.gov.pagopa.fdrxmltojson;
 
+import com.azure.core.http.rest.PagedIterable;
+import com.azure.core.util.Context;
+import com.azure.data.tables.TableClient;
+import com.azure.data.tables.models.ListEntitiesOptions;
+import com.azure.data.tables.models.TableEntity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -12,15 +17,22 @@ import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.model.QueueMessage;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
+import static java.time.temporal.ChronoUnit.SECONDS;
 
 public class QueueTriggerFn {
 
-    private static final String MAX_RETRY_COUNT = System.getenv("MAX_RETRY_COUNT"); // it should be maxDequeueCount + 1
+    private static final String MAX_RETRY_COUNT = System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE"); // it should be maxDequeueCount + 1
 
     private static Logger logger;
 
@@ -63,6 +75,18 @@ public class QueueTriggerFn {
         String sessionId = Optional.ofNullable(blobData.getMetadata().get("sessionId")).orElse("NA");
         try {
             fdrXmlCommon.convertXmlToJson(context, sessionId, blobData.getContent(), blobData.getFileName(), dequeueCount);
+
+            // if convertion is executed properly then removes the entry from fdr1conversion error table
+            TableClient tableClient = StorageAccountUtil.getTableClient();
+            ListEntitiesOptions listEntitiesOptions = new ListEntitiesOptions()
+                    .setFilter(String.format("RowKey eq '%s'", sessionId));
+            PagedIterable<TableEntity> entries = tableClient.listEntities(listEntitiesOptions, Duration.of(3, SECONDS), new Context("invocationId", context.getInvocationId()));
+            if (entries != null) {
+                for (TableEntity entry : entries) {
+                    tableClient.deleteEntity(entry);
+                }
+            }
+
         } catch (Exception e) {
             logger.log(Level.SEVERE, e, () -> messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "%s error [retry attempt: %s]", operation, dequeueCount));
 
@@ -70,7 +94,7 @@ public class QueueTriggerFn {
                 logger.log(Level.SEVERE, () -> messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "[ALERT][FdrXmlToJson][LAST_RETRY] Performed last retry for blob processing"));
             }
 
-            throw new Exception();
+            throw new Exception(e.getMessage(), e);
         }
 
     }
