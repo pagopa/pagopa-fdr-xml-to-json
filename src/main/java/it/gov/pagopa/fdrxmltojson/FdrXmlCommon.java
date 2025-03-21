@@ -252,7 +252,8 @@ public class FdrXmlCommon {
 		String partitionKey = LocalDate.ofInstant(now, TimeZone.getDefault().toZoneId()).toString();
 
 		TableClient tableClient = StorageAccountUtil.getTableClient();
-		TableEntity entity = new TableEntity(partitionKey, invocationId);
+//		TableEntity entity = new TableEntity(partitionKey, invocationId);
+		TableEntity entity = new TableEntity(partitionKey, sessionId);
 		entity.setProperties(errorMap);
 		tableClient.createEntity(entity);
 	}

@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "Azure Functions API",
+    "title" : "FdR - XML to JSON ${service}",
     "version": "1.0.1-6-PAGOPA-2470-fix",
-    "description": "API specification for Azure Functions XmlErrorRetry and Info"
+    "description" : "FDR XML to JSON API REST"
   },
   "paths": {
     "/xmlerror": {
@@ -28,15 +28,6 @@
               "type": "string"
             },
             "description": "Row key to identify the entity"
-          },
-          {
-            "name": "deleteOnlyByKey",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean"
-            },
-            "description": "Flag to delete only by key"
           }
         ],
         "responses": {

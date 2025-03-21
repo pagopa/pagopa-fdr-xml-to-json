@@ -43,7 +43,6 @@ public class QueueTriggerFn {
 	- ...
 	 */
     @FunctionName("QueueEventProcessor")
-//    @ExponentialBackoffRetry(maxRetryCount = 5, maximumInterval = "01:30:00", minimumInterval = "00:00:10")
     public void run(
             @QueueTrigger(name = "queueTrigger",
                     connection = "STORAGE_ACCOUNT_CONN_STRING",
