@@ -4,7 +4,7 @@ microservice-chart:
   fullnameOverride: "pagopa-fdr-xml-to-json"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-xml-to-json
-    tag: "1.0.1-15-PAGOPA-2470-fix"
+    tag: "1.0.1-16-PAGOPA-2470-fix"
     pullPolicy: Always
   livenessProbe:
     handlerType: tcpSocket
@@ -71,7 +71,7 @@ microservice-chart:
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "75"
   envConfig:
-#    JAVA_OPTS: "-XX:MaxHeapSize=576m -XX:MinHeapSize=64m"
+    #    JAVA_OPTS: "-XX:MaxHeapSize=576m -XX:MinHeapSize=64m"
     WEBSITE_SITE_NAME: "pagopafdrxmltojson" # required to show cloud role name in application insights
     FUNCTIONS_WORKER_RUNTIME: "java"
     FDR1_FLOW_BLOB_CONTAINER_NAME: "fdr1-flows"
