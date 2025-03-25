@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "FdR - XML to JSON ${service}",
-    "version": "1.0.1-13-PAGOPA-2470-fix",
+    "version": "1.0.1-14-PAGOPA-2470-fix",
     "description": "FDR XML to JSON API REST"
   },
   "paths": {
