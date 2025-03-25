@@ -11,7 +11,7 @@ resource "azurerm_api_management_api_version_set" "api_fdr_xml_to_json_api" {
 }
 
 module "apim_api_fdr_xml_to_json_api_v1" {
-  source = "git::https://github.com/pagopa/terraform-azurerm-v3.git//api_management_api?ref=v6.7.0"
+  source = "git::https://github.com/pagopa/terraform-azurerm-v3.git//api_management_api?ref=v8.86.0"
 
   name                  = "${local.project}-fdr-xml-to-json-service-api"
   api_management_name   = local.apim.name
