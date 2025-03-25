@@ -53,10 +53,10 @@ microservice-chart:
     allowPrivilegeEscalation: false
   resources:
     requests:
-      memory: "256Mi"
+      memory: "768Mi"
       cpu: "0.25"
     limits:
-      memory: "768Mi"
+      memory: "1Gi"
       cpu: "0.40"
   autoscaling:
     enable: true
@@ -71,7 +71,7 @@ microservice-chart:
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "75"
   envConfig:
-    JAVA_OPTS: "-XX:MaxHeapSize=576m -XX:MinHeapSize=64m"
+#    JAVA_OPTS: "-XX:MaxHeapSize=576m -XX:MinHeapSize=64m"
     WEBSITE_SITE_NAME: "pagopafdrxmltojson" # required to show cloud role name in application insights
     FUNCTIONS_WORKER_RUNTIME: "java"
     FDR1_FLOW_BLOB_CONTAINER_NAME: "fdr1-flows"
