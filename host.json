@@ -22,7 +22,6 @@
 
     }
   },
-  "functions": [ "Info", "BlobEventProcessor", "QueueEventProcessor", "XmlErrorRetry" ],
   "logging": {
     "logLevel": {
       "default": "Error",
