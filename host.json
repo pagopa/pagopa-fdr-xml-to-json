@@ -13,6 +13,7 @@
       "routePrefix": ""
     },
     "blobs": {
+      "maxDegreeOfParallelism": 2,
       "poisonBlobThreshold": 1
     },
     "queues": {
