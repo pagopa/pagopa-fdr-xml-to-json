@@ -17,6 +17,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.openapitools.client.ApiException;
 import org.openapitools.client.api.InternalPspApi;
+import org.openapitools.client.model.ErrorResponse;
 import org.openapitools.client.model.GenericResponse;
 import org.powermock.reflect.Whitebox;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
@@ -48,6 +49,7 @@ class BlobTriggerFnTest {
 	private EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
 	private MockedStatic<StorageAccountUtil> mockStorageAccountUtil;
+	private MockedStatic<ErrorResponse> mockErrorResponseUtil;
 
 	private static final Logger logger = Logger.getLogger("BlobTriggerFn-test-logger");
 

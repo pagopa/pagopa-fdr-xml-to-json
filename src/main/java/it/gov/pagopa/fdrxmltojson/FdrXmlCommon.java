@@ -96,16 +96,26 @@ public class FdrXmlCommon {
 			FdR3ClientUtil.getPspApi().internalCreate(fdr, pspId, createRequest);
 		} catch (ApiException e) {
 			if (e.getCode() == HttpStatus.BAD_REQUEST.value()) {
-				String appErrorCode = ErrorResponse.fromJson(e.getResponseBody()).getAppErrorCode();
-				if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_FLOW_ALREADY_CREATED)) {
-					// error != FDR-3002
-					// save on table storage and send alert
-					logger.log(Level.SEVERE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s error [appErrorCode: %s]", operation, Optional.ofNullable(appErrorCode).orElse("null")));
+				ErrorResponse errorBody = ErrorResponse.fromJson(e.getResponseBody());
+				if (errorBody != null) {
+					String appErrorCode = errorBody.getAppErrorCode();
+					if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_FLOW_ALREADY_CREATED)) {
+						// error != FDR-3002
+						// save on table storage and send alert
+						logger.log(Level.SEVERE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s error [appErrorCode: %s]", operation, Optional.ofNullable(appErrorCode).orElse("null")));
 
+						generateAlertAndSaveOnTable(
+								sessionId, invocationId, pspId, fdr, fileName,
+								ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_CREATE,
+								Optional.ofNullable(appErrorCode).orElse("null"), String.valueOf(retryAttempt), e
+						);
+					}
+				}
+				else {
 					generateAlertAndSaveOnTable(
 							sessionId, invocationId, pspId, fdr, fileName,
 							ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_CREATE,
-							Optional.ofNullable(appErrorCode).orElse("null"), String.valueOf(retryAttempt), e
+							String.valueOf(e.getCode()), String.valueOf(retryAttempt), e
 					);
 				}
 			}
@@ -143,55 +153,63 @@ public class FdrXmlCommon {
 		}
 		catch (ApiException e) {
 			if (e.getCode() == HttpStatus.BAD_REQUEST.value()) {
-				String appErrorCode = ErrorResponse.fromJson(e.getResponseBody()).getAppErrorCode();
-				if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_PAYMENT_ALREADY_ADDED)) {
-					generateAlertAndSaveOnTable(
-							sessionId, invocationId, pspId, fdr, fileName,
-							ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT,
-							Optional.ofNullable(appErrorCode).orElse("NA"), String.format("%d-%d", retryAttempt, internalRetry), e
-					);
-				}
-				else {
-					// case FDR_PAYMENT_ALREADY_ADDED
-					if (internalRetry < 2) {
-						ErrorResponse errorResponse = ErrorResponse.fromJson(e.getResponseBody());
-						if (errorResponse.getErrors() != null && !errorResponse.getErrors().isEmpty()) {
-							String path = errorResponse.getErrors().get(0).getPath();
-							if (path != null) {
-								List<Long> indexes = Arrays.stream(path.replaceAll("[\\[\\] ]", "").split(","))
-										.map(Long::parseLong).toList();
-								List<Payment> paymentsFiltered = addPaymentRequest.getPayments().stream().filter(payment -> !indexes.contains(payment.getIndex())).toList();
-								if (!paymentsFiltered.isEmpty()) {
-									addPaymentRequest.setPayments(paymentsFiltered);
+				ErrorResponse errorBody = ErrorResponse.fromJson(e.getResponseBody());
+				if (errorBody != null) {
+					String appErrorCode = errorBody.getAppErrorCode();
 
-									logger.log(Level.FINE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s try to send chunk without conflicting indexes", operation));
-									sendAddFdrPayments(sessionId, invocationId, fileName, fdr, pspId, addPaymentRequest, retryAttempt, internalRetry + 1);
+					if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_PAYMENT_ALREADY_ADDED)) {
+						generateAlertAndSaveOnTable(
+								sessionId, invocationId, pspId, fdr, fileName,
+								ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT,
+								Optional.ofNullable(appErrorCode).orElse("NA"), String.format("%d-%d", retryAttempt, internalRetry), e
+						);
+					} else {
+						// case FDR_PAYMENT_ALREADY_ADDED
+						if (internalRetry < 2) {
+							ErrorResponse errorResponse = ErrorResponse.fromJson(e.getResponseBody());
+							if (errorResponse.getErrors() != null && !errorResponse.getErrors().isEmpty()) {
+								String path = errorResponse.getErrors().get(0).getPath();
+								if (path != null) {
+									List<Long> indexes = Arrays.stream(path.replaceAll("[\\[\\] ]", "").split(","))
+											.map(Long::parseLong).toList();
+									List<Payment> paymentsFiltered = addPaymentRequest.getPayments().stream().filter(payment -> !indexes.contains(payment.getIndex())).toList();
+									if (!paymentsFiltered.isEmpty()) {
+										addPaymentRequest.setPayments(paymentsFiltered);
+
+										logger.log(Level.FINE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s try to send chunk without conflicting indexes", operation));
+										sendAddFdrPayments(sessionId, invocationId, fileName, fdr, pspId, addPaymentRequest, retryAttempt, internalRetry + 1);
+									} else {
+										logger.log(Level.FINE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s already added. Nothing to internalRetry", operation));
+									}
 								} else {
-									logger.log(Level.FINE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s already added. Nothing to internalRetry", operation));
+									generateAlertAndSaveOnTable(
+											sessionId, invocationId, pspId, fdr, fileName,
+											ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT_ERROR_RESPONSE_EMPTY,
+											appErrorCode, String.format("%d-%d. Path not found", retryAttempt, internalRetry), e
+									);
 								}
-							}
-							else {
+							} else {
 								generateAlertAndSaveOnTable(
 										sessionId, invocationId, pspId, fdr, fileName,
 										ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT_ERROR_RESPONSE_EMPTY,
-										appErrorCode, String.format("%d-%d. Path not found", retryAttempt, internalRetry), e
+										appErrorCode, String.format("%d-%d", retryAttempt, internalRetry), e
 								);
 							}
 						} else {
 							generateAlertAndSaveOnTable(
 									sessionId, invocationId, pspId, fdr, fileName,
-									ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT_ERROR_RESPONSE_EMPTY,
+									ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT_RETRY_EXCEEDED,
 									appErrorCode, String.format("%d-%d", retryAttempt, internalRetry), e
 							);
 						}
 					}
-					else {
-						generateAlertAndSaveOnTable(
-								sessionId, invocationId, pspId, fdr, fileName,
-								ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT_RETRY_EXCEEDED,
-								appErrorCode, String.format("%d-%d", retryAttempt, internalRetry), e
-						);
-					}
+				}
+				else {
+					generateAlertAndSaveOnTable(
+							sessionId, invocationId, pspId, fdr, fileName,
+							ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT,
+							String.valueOf(e.getCode()), String.format("%d-%d", retryAttempt, internalRetry), e
+					);
 				}
 			}
 			else {
