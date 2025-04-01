@@ -77,7 +77,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runOk_withoutAdditionalProperties() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		InternalPspApi pspApi = getPspApi();
 
@@ -99,7 +99,7 @@ class BlobTriggerFnTest {
     @SneakyThrows
     void runKo_pspHttpError_create_genericException() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -116,7 +116,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_create_apiException_400_appErrorCodeValid() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -138,7 +138,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_create_apiException_400_noAppErrorCode() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -157,7 +157,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_create_apiException_400_appErrorCodeNotValid() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -176,7 +176,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_create_apiException_404() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -196,7 +196,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_add_genericException() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -217,7 +217,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_add_apiException_400_appErrorCodeNotValid() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -240,7 +240,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_add_apiException_400_noAppErrorCode() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -263,7 +263,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_add_apiException_400_appErrorCodeValid_1() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -289,7 +289,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_add_apiException_400_appErrorCodeValid_2() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione_morePayments.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione_morePayments.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -312,7 +312,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_add_apiException_400_appErrorCodeValid_3() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione_morePayments.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione_morePayments.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -335,7 +335,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_publish_apiException_400_notFound_1() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -362,7 +362,7 @@ class BlobTriggerFnTest {
 	@SneakyThrows
 	void runKo_pspHttpError_publish_apiException_400_notFound_2() {
 		// generating input
-		byte[] content = getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
@@ -380,11 +380,6 @@ class BlobTriggerFnTest {
 		// execute logic
 		Assertions.assertThrows(AppException.class,
 				() -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
-	}
-
-	private byte[] getFileContent(String fileName) throws IOException {
-		String xml = TestUtil.readStringFromFile(fileName);
-		return TestUtil.gzipCompress(xml.getBytes(StandardCharsets.UTF_8));
 	}
 
 	private InternalPspApi getPspApi() {

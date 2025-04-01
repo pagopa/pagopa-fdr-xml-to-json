@@ -12,6 +12,7 @@ import reactor.core.publisher.Mono;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.util.*;
@@ -57,6 +58,11 @@ public class TestUtil {
         ClassLoader classLoader = TestUtil.class.getClassLoader();
         File file = new File(Objects.requireNonNull(classLoader.getResource(relativePath)).getPath());
         return Files.readString(file.toPath());
+    }
+
+    public byte[] getFileContent(String fileName) throws IOException {
+        String xml = TestUtil.readStringFromFile(fileName);
+        return TestUtil.gzipCompress(xml.getBytes(StandardCharsets.UTF_8));
     }
 
     public byte[] gzipCompress(byte[] uncompressedData) throws IOException {

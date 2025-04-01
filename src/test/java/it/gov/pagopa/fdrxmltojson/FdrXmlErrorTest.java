@@ -92,7 +92,7 @@ class FdrXmlErrorTest {
 		.thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()
 				.fileName(invocation.getArgument(0))
 				.metadata(Map.of("sessionId", "fake-sessionId"))
-				.content(getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml"))
+				.content(TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml"))
 				.build());
 
 		// Mock table entities
@@ -166,10 +166,5 @@ class FdrXmlErrorTest {
 
 		assertNotNull(response);
 		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
-	}
-
-	private byte[] getFileContent(String fileName) throws IOException {
-		String xml = TestUtil.readStringFromFile(fileName);
-		return TestUtil.gzipCompress(xml.getBytes(StandardCharsets.UTF_8));
 	}
 }
