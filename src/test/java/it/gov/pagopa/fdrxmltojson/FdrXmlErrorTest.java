@@ -9,6 +9,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -89,7 +92,7 @@ class FdrXmlErrorTest {
 		.thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()
 				.fileName(invocation.getArgument(0))
 				.metadata(Map.of("sessionId", "fake-sessionId"))
-				.content(new byte[]{1, 2, 3})
+				.content(getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml"))
 				.build());
 
 		// Mock table entities
@@ -163,5 +166,10 @@ class FdrXmlErrorTest {
 
 		assertNotNull(response);
 		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
+	}
+
+	private byte[] getFileContent(String fileName) throws IOException {
+		String xml = TestUtil.readStringFromFile(fileName);
+		return TestUtil.gzipCompress(xml.getBytes(StandardCharsets.UTF_8));
 	}
 }

@@ -88,13 +88,15 @@ public class QueueTriggerFn {
             }
 
         } catch (Exception e) {
-            logger.log(Level.SEVERE, e, () -> messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "%s error [retry attempt: %s]", operation, dequeueCount));
+            String formattedMessage = messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "%s error [retry attempt: %s]", operation, dequeueCount);
+            logger.log(Level.SEVERE, formattedMessage, e);
 
             if (dequeueCount ==  Long.parseLong(MAX_RETRY_COUNT) - 1) {
-                logger.log(Level.SEVERE, () -> messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "[ALERT][FdrXmlToJson][LAST_RETRY] Performed last retry for blob processing"));
+                formattedMessage = messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "[ALERT][FdrXmlToJson][LAST_RETRY] Performed last retry for blob processing");
+                logger.log(Level.SEVERE, formattedMessage, e);
             }
 
-            throw new Exception(e.getMessage(), e);
+            throw new Exception(formattedMessage, e);
         }
 
     }
