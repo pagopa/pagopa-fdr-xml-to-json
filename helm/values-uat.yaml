@@ -36,7 +36,7 @@ microservice-chart: &microservice-chart
       - 12345 #jmx-exporter
   ingress: &ingress
     create: true
-    host: "weudev.fdr.internal.dev.platform.pagopa.it"
+    host: "weuuat.fdr.internal.uat.platform.pagopa.it"
     path: /pagopa-fdr-xml-to-json/(.*)
     servicePort: 8080
   serviceAccount:
@@ -51,10 +51,10 @@ microservice-chart: &microservice-chart
     allowPrivilegeEscalation: false
   resources: &resources
     requests:
-      memory: "256Mi"
+      memory: "768Mi"
       cpu: "0.25"
     limits:
-      memory: "768Mi"
+      memory: "1Gi"
       cpu: "0.40"
   autoscaling: &autoscaling
     enable: true
@@ -69,13 +69,13 @@ microservice-chart: &microservice-chart
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "75"
   envConfig: &envConfig
-    #    JAVA_OPTS: "-XX:MaxHeapSize=256m -XX:MinHeapSize=64m"
+    #    JAVA_OPTS: "-XX:MaxHeapSize=576m -XX:MinHeapSize=64m"
     WEBSITE_SITE_NAME: "pagopafdrxmltojson" # required to show cloud role name in application insights
     FUNCTIONS_WORKER_RUNTIME: "java"
     FDR1_FLOW_BLOB_CONTAINER_NAME: "fdr1-flows"
     ERROR_TABLE_NAME: "fdr1conversionerror"
     BLOB_TRIGGER_POISON_QUEUE: "webjobs-blobtrigger-poison"
-    FDR_NEW_BASE_URL: "https://api.dev.platform.pagopa.it/fdr-internal/service/v1"
+    FDR_NEW_BASE_URL: "https://api.uat.platform.pagopa.it/fdr-internal/service/v1"
     ADD_PAYMENT_REQUEST_PARTITION_SIZE: "1000"
     MAX_RETRY_COUNT: "5"
     ASPNETCORE_URLS: "http://*:8080"
@@ -90,7 +90,7 @@ microservice-chart: &microservice-chart
     STORAGE_ACCOUNT_CONN_STRING: "fdr-sa-connection-string"
     AzureWebJobsStorage: "fdr-sa-connection-string"
   keyvault:
-    name: "pagopa-d-fdr-kv"
+    name: "pagopa-u-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
   nodeSelector: {}
   tolerations:

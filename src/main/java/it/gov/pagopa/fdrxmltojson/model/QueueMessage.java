@@ -12,6 +12,9 @@ import lombok.*;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class QueueMessage {
 
+    @JsonProperty("ContainerName")
+    private String containerName;
+
     @JsonProperty("BlobName")
     private String fileName;
 }

@@ -13,6 +13,7 @@
       "routePrefix": ""
     },
     "blobs": {
+      "maxDegreeOfParallelism": 2,
       "poisonBlobThreshold": 1
     },
     "queues": {
@@ -22,7 +23,6 @@
 
     }
   },
-  "functions": [ "Info", "BlobEventProcessor", "QueueEventProcessor", "XmlErrorRetry" ],
   "logging": {
     "logLevel": {
       "default": "Error",

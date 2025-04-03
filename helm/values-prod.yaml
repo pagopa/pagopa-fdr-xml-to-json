@@ -1,5 +1,7 @@
-microservice-chart: &microservice-chart
+microservice-chart:
   namespace: "fdr"
+  nameOverride: "pagopa-fdr-xml-to-json"
+  fullnameOverride: "pagopa-fdr-xml-to-json"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-xml-to-json
     tag: "1.0.1-21-PAGOPA-2470-fix"
@@ -34,9 +36,9 @@ microservice-chart: &microservice-chart
     ports:
       - 8080
       - 12345 #jmx-exporter
-  ingress: &ingress
+  ingress:
     create: true
-    host: "weudev.fdr.internal.dev.platform.pagopa.it"
+    host: "weuprod.fdr.internal.platform.pagopa.it"
     path: /pagopa-fdr-xml-to-json/(.*)
     servicePort: 8080
   serviceAccount:
@@ -49,17 +51,17 @@ microservice-chart: &microservice-chart
       type: RuntimeDefault
   securityContext:
     allowPrivilegeEscalation: false
-  resources: &resources
+  resources:
     requests:
-      memory: "256Mi"
+      memory: "768Mi"
       cpu: "0.25"
     limits:
-      memory: "768Mi"
+      memory: "1Gi"
       cpu: "0.40"
-  autoscaling: &autoscaling
+  autoscaling:
     enable: true
     minReplica: 1
-    maxReplica: 1
+    maxReplica: 3
     pollingInterval: 10 # seconds
     cooldownPeriod: 50 # seconds
     triggers:
@@ -68,14 +70,14 @@ microservice-chart: &microservice-chart
           # Required
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "75"
-  envConfig: &envConfig
-    #    JAVA_OPTS: "-XX:MaxHeapSize=256m -XX:MinHeapSize=64m"
+  envConfig:
+    #    JAVA_OPTS: "-XX:MaxHeapSize=576m -XX:MinHeapSize=64m"
     WEBSITE_SITE_NAME: "pagopafdrxmltojson" # required to show cloud role name in application insights
     FUNCTIONS_WORKER_RUNTIME: "java"
     FDR1_FLOW_BLOB_CONTAINER_NAME: "fdr1-flows"
     ERROR_TABLE_NAME: "fdr1conversionerror"
     BLOB_TRIGGER_POISON_QUEUE: "webjobs-blobtrigger-poison"
-    FDR_NEW_BASE_URL: "https://api.dev.platform.pagopa.it/fdr-internal/service/v1"
+    FDR_NEW_BASE_URL: "https://api.platform.pagopa.it/fdr-internal/service/v1"
     ADD_PAYMENT_REQUEST_PARTITION_SIZE: "1000"
     MAX_RETRY_COUNT: "5"
     ASPNETCORE_URLS: "http://*:8080"
@@ -90,7 +92,7 @@ microservice-chart: &microservice-chart
     STORAGE_ACCOUNT_CONN_STRING: "fdr-sa-connection-string"
     AzureWebJobsStorage: "fdr-sa-connection-string"
   keyvault:
-    name: "pagopa-d-fdr-kv"
+    name: "pagopa-p-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
   nodeSelector: {}
   tolerations:
@@ -109,50 +111,3 @@ microservice-chart: &microservice-chart
                   - "true"
   canaryDelivery:
     create: false
-# BLOB TRIGGER FUNCTION
-blobtrigger:
-  !!merge <<: *microservice-chart
-  ingress:
-    !!merge <<: *ingress
-    path: /pagopa-fdr-xml-to-json/blobtrigger-notuser/(.*)
-  autoscaling:
-    !!merge <<: *autoscaling
-  envConfig:
-    !!merge <<: *envConfig
-    WEBSITE_SITE_NAME: "pagopafdrxmltojson-blobtrigger" # required to show cloud role name in application insights
-    AzureFunctionsWebHost__hostid: "fdr-xml-to-json-blob-trigger"
-    AzureFunctionsJobHost__functions__0: "BlobEventProcessor"
-# QUEUE TRIGGER FUNCTION
-queuetrigger:
-  !!merge <<: *microservice-chart
-  ingress:
-    !!merge <<: *ingress
-    path: /pagopa-fdr-xml-to-json/queuetrigger-notuser/(.*)
-  autoscaling:
-    !!merge <<: *autoscaling
-  envConfig:
-    !!merge <<: *envConfig
-    WEBSITE_SITE_NAME: "pagopafdrxmltojson-queuetrigger" # required to show cloud role name in application insights
-    AzureFunctionsWebHost__hostid: "fdr-xml-to-json-queue-trigger"
-    AzureFunctionsJobHost__functions__0: "QueueEventProcessor"
-# HTTP TRIGGER FUNCTION
-httptrigger:
-  !!merge <<: *microservice-chart
-  ingress:
-    !!merge <<: *ingress
-  autoscaling:
-    !!merge <<: *autoscaling
-  resources:
-    !!merge <<: *resources
-    requests:
-      memory: "100Mi"
-      cpu: "0.1"
-    limits:
-      memory: "768Mi"
-      cpu: "0.40"
-  envConfig:
-    !!merge <<: *envConfig
-    WEBSITE_SITE_NAME: "pagopafdrxmltojson-httptrigger" # required to show cloud role name in application insights
-    AzureFunctionsWebHost__hostid: "fdr-xml-to-json-http-trigger"
-    AzureFunctionsJobHost__functions__0: "Info"
-    AzureFunctionsJobHost__functions__1: "XmlErrorRetry"

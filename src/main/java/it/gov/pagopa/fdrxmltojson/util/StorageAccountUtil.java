@@ -20,6 +20,10 @@ public class StorageAccountUtil {
 	private static TableServiceClient tableServiceClient = null;
 	private static BlobContainerClient blobContainerClient = null;
 
+	public static String getFdr1FlowBlobContainerName() {
+		return FDR1_FLOW_BLOB_CONTAINER_NAME;
+	}
+
 	public static TableClient getTableClient() {
 		return getTableServiceClient().getTableClient(ERROR_TABLE_NAME);
 	}
