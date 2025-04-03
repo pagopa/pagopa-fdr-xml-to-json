@@ -43,10 +43,15 @@ class QueueTriggerFnTest {
 
 	private MockedStatic<StorageAccountUtil> mockStorageAccountUtil;
 
+	@SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
+
 	private static final Logger logger = Logger.getLogger("QueueTriggerFn-test-logger");
 
 	@BeforeEach
 	void setUp() {
+		// Simulate environment variables
+		TestUtil.setupEnvironmentVariables(environmentVariables);
+
 		queueTriggerFn = new QueueTriggerFn(fdrXmlCommon);
 
 		when(context.getLogger()).thenReturn(logger);
@@ -54,6 +59,7 @@ class QueueTriggerFnTest {
 		// Mock static methods of StorageAccountUtil
 		mockStorageAccountUtil = mockStatic(StorageAccountUtil.class);
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+		mockStorageAccountUtil.when(StorageAccountUtil::getFdr1FlowBlobContainerName).thenReturn("fdr1-flows");
 	}
 
 	@AfterEach
@@ -69,11 +75,12 @@ class QueueTriggerFnTest {
 		// generating input
 		String message = "{\"Type\":\"BlobTrigger\",\"FunctionId\":\"Host.Functions.BlobFdrXmlToJsonEventProcessor\",\"BlobType\":\"BlockBlob\",\"ContainerName\":\"fdr1-flows\",\"BlobName\":\"2025-02-2088888888888-235633854_27f28ae5-02ec-4845-90e8-6e1950b7a400.xml.zip\",\"ETag\":\"\\\"0x8DD51CD85C7A615\\\"\"}";
 		long dequeueCount = 1;
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 		mockStorageAccountUtil.when(() -> StorageAccountUtil.getBlobContent(anyString()))
 				.thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()
 						.fileName(invocation.getArgument(0))
 						.metadata(Map.of("sessionId", "fake-sessionId"))
-						.content(new byte[]{1, 2, 3})
+						.content(content)
 						.build());
 
 		Assertions.assertDoesNotThrow(() -> queueTriggerFn.run(message, dequeueCount, context));
@@ -84,7 +91,7 @@ class QueueTriggerFnTest {
 	void runKo() {
 		// generating input
 		String message = "{\"Type\":\"BlobTrigger\",\"FunctionId\":\"Host.Functions.BlobFdrXmlToJsonEventProcessor\",\"BlobType\":\"BlockBlob\",\"ContainerName\":\"fdr1-flows\",\"BlobName\":\"2025-02-2088888888888-235633854_27f28ae5-02ec-4845-90e8-6e1950b7a400.xml.zip\",\"ETag\":\"\\\"0x8DD51CD85C7A615\\\"\"}";
-		long dequeueCount = 6;
+		long dequeueCount = 4;
 
 		mockStorageAccountUtil.when(() -> StorageAccountUtil.getBlobContent(anyString()))
 				.thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()

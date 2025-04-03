@@ -42,6 +42,7 @@ public class TestUtil {
         environmentVariables.set("ADD_PAYMENT_REQUEST_PARTITION_SIZE", 1000);
         environmentVariables.set("FDR_NEW_BASE_URL", "fdr3-internal-url");
         environmentVariables.set("FDR_NEW_API_KEY", "fdr3-internal-subscription-key");
+        environmentVariables.set("MAX_RETRY_COUNT", "5");
     }
 
     public static void resetEnvironmentVariables(EnvironmentVariables environmentVariables) {
