@@ -51,7 +51,7 @@ microservice-chart: &microservice-chart
     allowPrivilegeEscalation: false
   resources: &resources
     requests:
-      memory: "768Mi"
+      memory: "512Mi"
       cpu: "0.25"
     limits:
       memory: "1Gi"
@@ -119,6 +119,7 @@ blobtrigger:
     !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
+    JAVA_OPTS: "-XX:MinHeapSize=300m -XX:MaxHeapSize=600m -XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30"
     WEBSITE_SITE_NAME: "pagopafdrxmltojson-blobtrigger" # required to show cloud role name in application insights
     AzureFunctionsWebHost__hostid: "fdr-xml-to-json-blob-trigger"
     AzureFunctionsJobHost__functions__0: "BlobEventProcessor"
@@ -132,6 +133,7 @@ queuetrigger:
     !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
+    JAVA_OPTS: "-XX:MinHeapSize=300m -XX:MaxHeapSize=600m -XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30"
     WEBSITE_SITE_NAME: "pagopafdrxmltojson-queuetrigger" # required to show cloud role name in application insights
     AzureFunctionsWebHost__hostid: "fdr-xml-to-json-queue-trigger"
     AzureFunctionsJobHost__functions__0: "QueueEventProcessor"
