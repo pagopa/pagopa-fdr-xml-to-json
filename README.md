@@ -1,9 +1,9 @@
 # pagoPA Functions fdr-xml-to-json-fn
 
-Java fdr-re-to-datastore Azure Function.
+Java fdr-xml-to-json Azure Function.
 The function aims to convert FdR reports from XML format to JSON format.
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=pagopa_pagopa-fdr-re-to-datastore&metric=alert_status)](https://sonarcloud.io/dashboard?id=pagopa_pagopa-fdr-re-to-datastore)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=pagopa_pagopa-fdr-xml-to-json&metric=alert_status)](https://sonarcloud.io/dashboard?id=pagopa_pagopa-fdr-xml-to-json)
 
 
 ---
