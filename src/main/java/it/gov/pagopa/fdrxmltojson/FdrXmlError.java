@@ -22,7 +22,7 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
+import static it.gov.pagopa.fdrxmltojson.util.FormatterUtil.messageFormat;
 
 
 /**

@@ -11,26 +11,22 @@ import it.gov.pagopa.fdrxmltojson.model.AppConstant;
 import it.gov.pagopa.fdrxmltojson.model.ErrorEnum;
 import it.gov.pagopa.fdrxmltojson.util.*;
 import it.gov.pagopa.pagopa_api.node.nodeforpsp.NodoInviaFlussoRendicontazioneRequest;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.openapitools.client.ApiException;
 import org.openapitools.client.model.*;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
+import static it.gov.pagopa.fdrxmltojson.util.FormatterUtil.messageFormat;
 
 
 public class FdrXmlCommon {
-
-	private static final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
 
 	private static Logger logger;
 
@@ -49,12 +45,9 @@ public class FdrXmlCommon {
 			// decompress GZip file
 			InputStream decompressedStream = GZipUtil.decompressGzip(content);
 
-			// read xml
-			Document document = XMLUtil.loadXML(decompressedStream);
-			Element element = XMLUtil.searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
-
-			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = XMLUtil.getInstanceByNode(element, NodoInviaFlussoRendicontazioneRequest.class);
-			CtFlussoRiversamento ctFlussoRiversamento = XMLUtil.getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
+			XMLParser parser = new XMLParser(logger);
+			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = parser.getInstanceByStAX(decompressedStream, NodoInviaFlussoRendicontazioneRequest.class);
+			CtFlussoRiversamento ctFlussoRiversamento = parser.getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
 
 			// extract pathParam for FdR
 			String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
@@ -277,5 +270,11 @@ public class FdrXmlCommon {
 		return Integer.parseInt(System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE"));
 	}
 
+	private static void toFile(InputStream inputStream) throws IOException {
+		File tempFile = File.createTempFile("extracted", ".xml");
+		FileUtils.copyInputStreamToFile(inputStream, tempFile);
+		logger.info("FILEEEEEEE " + tempFile.getAbsolutePath());
+
+	}
 }
 
