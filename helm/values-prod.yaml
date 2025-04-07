@@ -158,3 +158,4 @@ httptrigger:
     AzureFunctionsWebHost__hostid: "fdr-xml-to-json-http-trigger"
     AzureFunctionsJobHost__functions__0: "Info"
     AzureFunctionsJobHost__functions__1: "XmlErrorRetry"
+    AzureFunctionsJobHost__functions__2: "HttpTriggerFn"
