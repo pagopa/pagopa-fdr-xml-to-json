@@ -8,12 +8,17 @@ import com.azure.data.tables.models.TableEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
+import it.gov.pagopa.fdrxmltojson.model.AppConstant;
 import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.model.QueueMessage;
+import it.gov.pagopa.fdrxmltojson.util.FdR3ClientUtil;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
+import org.openapitools.client.ApiException;
+import org.openapitools.client.model.ErrorResponse;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -66,10 +71,10 @@ public class QueueTriggerFn {
                 !queueMessage.getFileName().isBlank()
         ) {
             BlobData blobData = StorageAccountUtil.getBlobContent(queueMessage.getFileName());
-
             String sessionId = Optional.ofNullable(blobData.getMetadata().get("sessionId")).orElse("NA");
+
             try {
-                fdrXmlCommon.convertXmlToJson(context, sessionId, blobData.getContent(), blobData.getFileName(), dequeueCount);
+                fdrXmlCommon.convertXmlToJson(context, sessionId, blobData.getContent(), blobData.getFileName(), dequeueCount, true);
 
                 // if convertion is executed properly then removes the entry from fdr1conversion error table
                 TableClient tableClient = StorageAccountUtil.getTableClient();

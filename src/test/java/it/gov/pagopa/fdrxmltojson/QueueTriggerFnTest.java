@@ -101,7 +101,7 @@ class QueueTriggerFnTest {
 						.build());
 
 		doThrow(new Exception("Simulated Exception")).when(fdrXmlCommon)
-				.convertXmlToJson(any(), anyString(), any(), anyString(), anyLong());
+				.convertXmlToJson(any(), anyString(), any(), anyString(), anyLong(), anyBoolean());
 
 		// execute logic
 		Exception thrownException = assertThrows(Exception.class, () ->

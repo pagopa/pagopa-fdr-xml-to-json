@@ -34,7 +34,8 @@ public class FdrXmlCommon {
 								 String sessionId,
 								 byte[] content,
 								 String fileName,
-								 long retryAttempt) throws Exception {
+								 long retryAttempt,
+								 boolean tryToDelete) throws Exception {
 
 		logger = context.getLogger();
 
@@ -52,6 +53,9 @@ public class FdrXmlCommon {
 			// extract pathParam for FdR
 			String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
 			String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
+
+			// delete previous create FDR flow
+			deleteFdrFlow(tryToDelete, sessionId, context.getInvocationId(), fileName, fdr, pspId);
 
 			// call create FDR flow
 			createFdRFlow(sessionId, context.getInvocationId(), fileName, fdr, pspId, nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento, retryAttempt);
@@ -73,6 +77,17 @@ public class FdrXmlCommon {
 		INTERNAL_ADD_PAYMENT_ERROR_RESPONSE_EMPTY,
 		INTERNAL_ADD_PAYMENT_RETRY_EXCEEDED,
 		INTERNAL_PUBLISH;
+	}
+
+	private void deleteFdrFlow(boolean tryToDelete, String sessionId, String invocationId, String fileName, String fdr, String pspId) {
+		if (tryToDelete) {
+			String operation = "Delete previous fdr flow";
+			try {
+				FdR3ClientUtil.getPspApi().internalDelete(fdr, pspId);  // clears the entire stream from FDR
+			} catch (ApiException e) {
+				logger.log(Level.WARNING, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s - failed %s", operation, e.getResponseBody()));
+			}
+		}
 	}
 
 	private void createFdRFlow(

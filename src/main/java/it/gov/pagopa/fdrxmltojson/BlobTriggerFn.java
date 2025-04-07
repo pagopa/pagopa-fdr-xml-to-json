@@ -27,7 +27,7 @@ public class BlobTriggerFn {
 			String sessionId = blobMetadata.getOrDefault("sessionId", "NA");
 			FdrXmlCommon fdrXmlCommon = new FdrXmlCommon();
 
-			fdrXmlCommon.convertXmlToJson(context, sessionId, content, fileName, 0);
+			fdrXmlCommon.convertXmlToJson(context, sessionId, content, fileName, 0, false);
 
 		}
     }
