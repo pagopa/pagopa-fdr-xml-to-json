@@ -11,10 +11,12 @@ import it.gov.pagopa.fdrxmltojson.model.AppConstant;
 import it.gov.pagopa.fdrxmltojson.model.ErrorEnum;
 import it.gov.pagopa.fdrxmltojson.util.*;
 import it.gov.pagopa.pagopa_api.node.nodeforpsp.NodoInviaFlussoRendicontazioneRequest;
+import jakarta.xml.bind.JAXBException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.openapitools.client.ApiException;
 import org.openapitools.client.model.*;
 
+import javax.xml.stream.XMLStreamException;
 import java.io.*;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,7 +36,7 @@ public class FdrXmlCommon {
 								 byte[] content,
 								 String fileName,
 								 long retryAttempt,
-								 boolean tryToDelete) throws Exception {
+								 boolean tryToDelete) throws IOException, XMLStreamException, JAXBException {
 
 		logger = context.getLogger();
 

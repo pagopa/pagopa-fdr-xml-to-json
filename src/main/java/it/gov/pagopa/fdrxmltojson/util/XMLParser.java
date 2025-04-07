@@ -12,7 +12,7 @@ import java.io.*;
 
 public class XMLParser {
 
-    private final static String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
+    private static final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
 
     public <T> T getInstanceByStAX(InputStream inputStream, Class<T> type) throws XMLStreamException, JAXBException {
         XMLInputFactory xif = XMLInputFactory.newFactory();
