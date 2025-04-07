@@ -284,12 +284,5 @@ public class FdrXmlCommon {
 	private Integer getPaymentChunkSize() {
 		return Integer.parseInt(System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE"));
 	}
-
-	private static void toFile(InputStream inputStream) throws IOException {
-		File tempFile = File.createTempFile("extracted", ".xml");
-		FileUtils.copyInputStreamToFile(inputStream, tempFile);
-		logger.info("FILEEEEEEE " + tempFile.getAbsolutePath());
-
-	}
 }
 
