@@ -8,21 +8,13 @@ import jakarta.xml.bind.Unmarshaller;
 import javax.xml.stream.*;
 import javax.xml.transform.stream.StreamSource;
 import java.io.*;
-import java.util.logging.Logger;
 
 
 public class XMLParser {
 
-    private Logger logger;
+    private final static String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
 
-    private final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
-
-    public XMLParser(Logger logger) {
-        this.logger = logger;
-    }
-
-    public <T> T getInstanceByStAX(InputStream inputStream, Class<T> type) throws Exception {
-
+    public <T> T getInstanceByStAX(InputStream inputStream, Class<T> type) throws XMLStreamException, JAXBException {
         XMLInputFactory xif = XMLInputFactory.newFactory();
         xif.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false); // disable external entities as DTD
         xif.setProperty(XMLInputFactory.SUPPORT_DTD, false); // disable DTD to accelerate parsing

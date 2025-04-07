@@ -11,7 +11,6 @@ import it.gov.pagopa.fdrxmltojson.model.AppConstant;
 import it.gov.pagopa.fdrxmltojson.model.ErrorEnum;
 import it.gov.pagopa.fdrxmltojson.util.*;
 import it.gov.pagopa.pagopa_api.node.nodeforpsp.NodoInviaFlussoRendicontazioneRequest;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.openapitools.client.ApiException;
 import org.openapitools.client.model.*;
@@ -46,7 +45,7 @@ public class FdrXmlCommon {
 			// decompress GZip file
 			InputStream decompressedStream = GZipUtil.decompressGzip(content);
 
-			XMLParser parser = new XMLParser(logger);
+			XMLParser parser = new XMLParser();
 			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = parser.getInstanceByStAX(decompressedStream, NodoInviaFlussoRendicontazioneRequest.class);
 			CtFlussoRiversamento ctFlussoRiversamento = parser.getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
 
