@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "FdR - XML to JSON ${service}",
-    "version": "1.0.2",
+    "version": "1.0.2-3-PAGOPA-2960-fix-oom",
     "description": "FDR XML to JSON API REST"
   },
   "paths": {
@@ -18,7 +18,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Partition key to identify the entity"
+            "description": "Date in format 'yyyy-mm-dd' - table fdr1conversionerror"
           },
           {
             "name": "rowKey",
@@ -27,7 +27,46 @@
             "schema": {
               "type": "string"
             },
-            "description": "Row key to identify the entity"
+            "description": "SessionId (blob metadata) - table fdr1conversionerror"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success message",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fdr": {
+      "get": {
+        "summary": "Retry to processing filename",
+        "operationId": "HttpTriggerFn",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Blob filename to recover"
           }
         ],
         "responses": {

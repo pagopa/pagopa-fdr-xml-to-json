@@ -14,11 +14,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
-import org.openapitools.client.ApiException;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -100,8 +100,8 @@ class QueueTriggerFnTest {
 						.content(new byte[]{1, 2, 3})
 						.build());
 
-		doThrow(new Exception("Simulated Exception")).when(fdrXmlCommon)
-				.convertXmlToJson(any(), anyString(), any(), anyString(), anyLong());
+		doThrow(new IOException("Simulated Exception")).when(fdrXmlCommon)
+				.convertXmlToJson(any(), anyString(), any(), anyString(), anyLong(), anyBoolean());
 
 		// execute logic
 		Exception thrownException = assertThrows(Exception.class, () ->
