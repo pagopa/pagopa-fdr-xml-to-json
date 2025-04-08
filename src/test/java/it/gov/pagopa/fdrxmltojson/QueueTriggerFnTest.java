@@ -1,6 +1,8 @@
 package it.gov.pagopa.fdrxmltojson;
 
+import com.azure.core.http.rest.PagedIterable;
 import com.azure.data.tables.TableClient;
+import com.azure.data.tables.models.TableEntity;
 import com.microsoft.azure.functions.ExecutionContext;
 import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
@@ -19,7 +21,7 @@ import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -82,6 +84,32 @@ class QueueTriggerFnTest {
 						.metadata(Map.of("sessionId", "fake-sessionId"))
 						.content(content)
 						.build());
+
+		Assertions.assertDoesNotThrow(() -> queueTriggerFn.run(message, dequeueCount, context));
+	}
+
+	@Test
+	@SneakyThrows
+	void runOk_delete_entities() {
+		// generating input
+		String message = "{\"Type\":\"BlobTrigger\",\"FunctionId\":\"Host.Functions.BlobFdrXmlToJsonEventProcessor\",\"BlobType\":\"BlockBlob\",\"ContainerName\":\"fdr1-flows\",\"BlobName\":\"2025-02-2088888888888-235633854_27f28ae5-02ec-4845-90e8-6e1950b7a400.xml.zip\",\"ETag\":\"\\\"0x8DD51CD85C7A615\\\"\"}";
+		long dequeueCount = 1;
+		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+		mockStorageAccountUtil.when(() -> StorageAccountUtil.getBlobContent(anyString()))
+				.thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()
+						.fileName(invocation.getArgument(0))
+						.metadata(Map.of("sessionId", "fake-sessionId"))
+						.content(content)
+						.build());
+
+		TableEntity mockEntity = mock(TableEntity.class);
+		List<TableEntity> mockEntityList = Collections.singletonList(mockEntity);
+		Iterator<TableEntity> mockIterator = mockEntityList.iterator();
+
+		PagedIterable<TableEntity> mockPagedTableEntities = mock(PagedIterable.class);
+		when(mockPagedTableEntities.iterator()).thenReturn(mockIterator);
+		mockStorageAccountUtil.when(() -> StorageAccountUtil.getTableClient().listEntities(any(), any(), any()))
+						.thenAnswer(invocation -> mockPagedTableEntities);
 
 		Assertions.assertDoesNotThrow(() -> queueTriggerFn.run(message, dequeueCount, context));
 	}
