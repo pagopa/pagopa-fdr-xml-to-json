@@ -122,7 +122,8 @@ blobtrigger:
     JAVA_OPTS: "-XX:MinHeapSize=300m -XX:MaxHeapSize=600m -XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30"
     WEBSITE_SITE_NAME: "pagopafdrxmltojson-blobtrigger" # required to show cloud role name in application insights
     AzureFunctionsWebHost__hostid: "fdr-xml-to-json-blob-trigger"
-    AzureFunctionsJobHost__functions__0: "BlobEventProcessor"
+    AzureFunctionsJobHost__functions__0: "Info"
+    AzureFunctionsJobHost__functions__1: "BlobEventProcessor"
 # QUEUE TRIGGER FUNCTION
 queuetrigger:
   !!merge <<: *microservice-chart
@@ -136,7 +137,8 @@ queuetrigger:
     JAVA_OPTS: "-XX:MinHeapSize=300m -XX:MaxHeapSize=600m -XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30"
     WEBSITE_SITE_NAME: "pagopafdrxmltojson-queuetrigger" # required to show cloud role name in application insights
     AzureFunctionsWebHost__hostid: "fdr-xml-to-json-queue-trigger"
-    AzureFunctionsJobHost__functions__0: "QueueEventProcessor"
+    AzureFunctionsJobHost__functions__0: "Info"
+    AzureFunctionsJobHost__functions__1: "QueueEventProcessor"
 # HTTP TRIGGER FUNCTION
 httptrigger:
   !!merge <<: *microservice-chart
