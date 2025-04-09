@@ -36,7 +36,7 @@ public class Info {
 				.body(
 						getInfo(
 								context.getLogger(),
-								"/META-INF/maven/it.gov.pagopa.fdrxmltojson/pom.properties"))
+								"/META-INF/maven/it.gov.pagopa/fdrxmltojson/pom.properties"))
 				.build();
 	}
 
