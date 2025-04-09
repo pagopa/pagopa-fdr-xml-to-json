@@ -84,7 +84,7 @@ public class FdR3ClientUtil {
         sender.setType(typeMap.get(tipoIdentificativoUnivoco));
         sender.setId(ctFlussoRiversamento.getIstitutoMittente().getIdentificativoUnivocoMittente().getCodiceIdentificativoUnivoco());
         sender.setPspId(nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP());
-        sender.setPspName(Optional.ofNullable(ctFlussoRiversamento.getIstitutoMittente().getDenominazioneMittente()).orElse(""));
+        sender.setPspName(Optional.ofNullable(ctFlussoRiversamento.getIstitutoMittente().getDenominazioneMittente()).orElse("   ")); // whitespace to avoid pattern regex constraint
         sender.setPspBrokerId(nodoInviaFlussoRendicontazioneRequest.getIdentificativoIntermediarioPSP());
         sender.setChannelId(nodoInviaFlussoRendicontazioneRequest.getIdentificativoCanale());
         sender.setPassword(nodoInviaFlussoRendicontazioneRequest.getPassword());
