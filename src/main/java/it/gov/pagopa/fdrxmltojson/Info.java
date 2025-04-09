@@ -36,7 +36,7 @@ public class Info {
 				.body(
 						getInfo(
 								context.getLogger(),
-								"/META-INF/maven/it.gov.pagopa.fdrxmltojson/pom.properties"))
+								"/META-INF/maven/it.gov.pagopa/fdrxmltojson/pom.properties"))
 				.build();
 	}
 
@@ -45,9 +45,13 @@ public class Info {
 		String name = null;
 		try {
 			Properties properties = new Properties();
+			System.out.printf("AAAAA");
 			InputStream inputStream = loadResource(path);
+			System.out.printf("OOOOO");
 			if (inputStream != null) {
+				System.out.printf("LEL");
 				properties.load(inputStream);
+				System.out.printf("LIL");
 				version = properties.getProperty("version", null);
 				name = properties.getProperty("artifactId", null);
 			}
