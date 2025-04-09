@@ -20,7 +20,7 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
+import static it.gov.pagopa.fdrxmltojson.util.FormatterUtil.messageFormat;
 import static java.time.temporal.ChronoUnit.SECONDS;
 
 public class QueueTriggerFn {
@@ -37,14 +37,6 @@ public class QueueTriggerFn {
         this.fdrXmlCommon = fdrXmlCommon;
     }
 
-    /*
-	Executing this Azure Function in exponential retry, with steps:
-	- retry 0: 0
-	- retry 1: 10s
-	- retry 2: 20s
-	- retry 3: 40s
-	- ...
-	 */
     @FunctionName("QueueEventProcessor")
     public void run(
             @QueueTrigger(name = "queueTrigger",
@@ -66,10 +58,10 @@ public class QueueTriggerFn {
                 !queueMessage.getFileName().isBlank()
         ) {
             BlobData blobData = StorageAccountUtil.getBlobContent(queueMessage.getFileName());
-
             String sessionId = Optional.ofNullable(blobData.getMetadata().get("sessionId")).orElse("NA");
+
             try {
-                fdrXmlCommon.convertXmlToJson(context, sessionId, blobData.getContent(), blobData.getFileName(), dequeueCount);
+                fdrXmlCommon.convertXmlToJson(context, sessionId, blobData.getContent(), blobData.getFileName(), dequeueCount, true);
 
                 // if convertion is executed properly then removes the entry from fdr1conversion error table
                 TableClient tableClient = StorageAccountUtil.getTableClient();

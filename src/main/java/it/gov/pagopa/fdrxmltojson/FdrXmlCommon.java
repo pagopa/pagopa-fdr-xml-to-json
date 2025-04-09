@@ -11,26 +11,23 @@ import it.gov.pagopa.fdrxmltojson.model.AppConstant;
 import it.gov.pagopa.fdrxmltojson.model.ErrorEnum;
 import it.gov.pagopa.fdrxmltojson.util.*;
 import it.gov.pagopa.pagopa_api.node.nodeforpsp.NodoInviaFlussoRendicontazioneRequest;
+import jakarta.xml.bind.JAXBException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.openapitools.client.ApiException;
 import org.openapitools.client.model.*;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 
-import java.io.IOException;
-import java.io.InputStream;
+import javax.xml.stream.XMLStreamException;
+import java.io.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
+import static it.gov.pagopa.fdrxmltojson.util.FormatterUtil.messageFormat;
 
 
 public class FdrXmlCommon {
-
-	private static final String NODO_INVIA_FLUSSO_RENDICONTAZIONE = "nodoInviaFlussoRendicontazione";
 
 	private static Logger logger;
 
@@ -38,7 +35,8 @@ public class FdrXmlCommon {
 								 String sessionId,
 								 byte[] content,
 								 String fileName,
-								 long retryAttempt) throws Exception {
+								 long retryAttempt,
+								 boolean tryToDelete) throws IOException, XMLStreamException, JAXBException {
 
 		logger = context.getLogger();
 
@@ -49,16 +47,16 @@ public class FdrXmlCommon {
 			// decompress GZip file
 			InputStream decompressedStream = GZipUtil.decompressGzip(content);
 
-			// read xml
-			Document document = XMLUtil.loadXML(decompressedStream);
-			Element element = XMLUtil.searchNodeByName(document, NODO_INVIA_FLUSSO_RENDICONTAZIONE);
-
-			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = XMLUtil.getInstanceByNode(element, NodoInviaFlussoRendicontazioneRequest.class);
-			CtFlussoRiversamento ctFlussoRiversamento = XMLUtil.getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
+			XMLParser parser = new XMLParser();
+			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest = parser.getInstanceByStAX(decompressedStream, NodoInviaFlussoRendicontazioneRequest.class);
+			CtFlussoRiversamento ctFlussoRiversamento = parser.getInstanceByBytes(nodoInviaFlussoRendicontazioneRequest.getXmlRendicontazione(), CtFlussoRiversamento.class);
 
 			// extract pathParam for FdR
 			String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
 			String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
+
+			// delete previous create FDR flow
+			deleteFdrFlow(tryToDelete, sessionId, context.getInvocationId(), fileName, fdr, pspId);
 
 			// call create FDR flow
 			createFdRFlow(sessionId, context.getInvocationId(), fileName, fdr, pspId, nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento, retryAttempt);
@@ -80,6 +78,17 @@ public class FdrXmlCommon {
 		INTERNAL_ADD_PAYMENT_ERROR_RESPONSE_EMPTY,
 		INTERNAL_ADD_PAYMENT_RETRY_EXCEEDED,
 		INTERNAL_PUBLISH;
+	}
+
+	private void deleteFdrFlow(boolean tryToDelete, String sessionId, String invocationId, String fileName, String fdr, String pspId) {
+		if (tryToDelete) {
+			String operation = "Delete previous fdr flow";
+			try {
+				FdR3ClientUtil.getPspApi().internalDelete(fdr, pspId);  // clears the entire stream from FDR
+			} catch (ApiException e) {
+				logger.log(Level.WARNING, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s - failed %s", operation, e.getResponseBody()));
+			}
+		}
 	}
 
 	private void createFdRFlow(
@@ -276,6 +285,5 @@ public class FdrXmlCommon {
 	private Integer getPaymentChunkSize() {
 		return Integer.parseInt(System.getenv("ADD_PAYMENT_REQUEST_PARTITION_SIZE"));
 	}
-
 }
 

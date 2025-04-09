@@ -22,7 +22,7 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static it.gov.pagopa.fdrxmltojson.util.XMLUtil.messageFormat;
+import static it.gov.pagopa.fdrxmltojson.util.FormatterUtil.messageFormat;
 
 
 /**
@@ -102,7 +102,7 @@ public class FdrXmlError {
 		String sessionId = blobData.getMetadata().get(AppConstant.columnFieldSessionId);
 		
 		// retryAttempt to 0 because it is an external call
-		new FdrXmlCommon().convertXmlToJson(context, sessionId, content, fileName, 0);
+		new FdrXmlCommon().convertXmlToJson(context, sessionId, content, fileName, 0, true);
 
 		try {
 			FdR3ClientUtil.getPspApi().internalDelete(fdr, pspId);  // clears the entire stream from FDR

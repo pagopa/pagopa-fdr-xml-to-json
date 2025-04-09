@@ -4,6 +4,10 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
+import jakarta.xml.bind.JAXBException;
+
+import javax.xml.stream.XMLStreamException;
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -20,14 +24,14 @@ public class BlobTriggerFn {
 					dataType = "binary") byte[] content,
 			@BindingName("fileName") String fileName,
 			@BindingName("Metadata") Map<String, String> blobMetadata,
-			final ExecutionContext context) throws Exception {
+			final ExecutionContext context) throws XMLStreamException, JAXBException, IOException {
 
 		if (Boolean.parseBoolean(blobMetadata.getOrDefault("elaborate", "false"))) {
 
 			String sessionId = blobMetadata.getOrDefault("sessionId", "NA");
 			FdrXmlCommon fdrXmlCommon = new FdrXmlCommon();
 
-			fdrXmlCommon.convertXmlToJson(context, sessionId, content, fileName, 0);
+			fdrXmlCommon.convertXmlToJson(context, sessionId, content, fileName, 0, false);
 
 		}
     }
