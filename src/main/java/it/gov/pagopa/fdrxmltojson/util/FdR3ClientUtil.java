@@ -55,7 +55,7 @@ public class FdR3ClientUtil {
         createRequest.setSender(getSender(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento));
         createRequest.setReceiver(getReceiver(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento));
         createRequest.setRegulation(ctFlussoRiversamento.getIdentificativoUnivocoRegolamento());
-        createRequest.setRegulationDate(ctFlussoRiversamento.getDataRegolamento().toGregorianCalendar().toZonedDateTime().toOffsetDateTime());
+        createRequest.setRegulationDate(ctFlussoRiversamento.getDataRegolamento().toGregorianCalendar().toZonedDateTime().toLocalDate());
         createRequest.setBicCodePouringBank(ctFlussoRiversamento.getCodiceBicBancaDiRiversamento());
         createRequest.setTotPayments(ctFlussoRiversamento.getNumeroTotalePagamenti().longValue());
         createRequest.setSumPayments(ctFlussoRiversamento.getImportoTotalePagamenti().doubleValue());
