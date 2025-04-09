@@ -45,13 +45,9 @@ public class Info {
 		String name = null;
 		try {
 			Properties properties = new Properties();
-			System.out.printf("AAAAA");
 			InputStream inputStream = loadResource(path);
-			System.out.printf("OOOOO");
 			if (inputStream != null) {
-				System.out.printf("LEL");
 				properties.load(inputStream);
-				System.out.printf("LIL");
 				version = properties.getProperty("version", null);
 				name = properties.getProperty("artifactId", null);
 			}
