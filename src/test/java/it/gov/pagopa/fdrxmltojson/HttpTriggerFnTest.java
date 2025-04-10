@@ -137,8 +137,6 @@ class HttpTriggerFnTest {
 
 	@Test
 	void testRun_withoutFilename() {
-		when(request.getQueryParameters()).thenReturn(Map.of());
-
 		HttpResponseMessage response = httpTriggerFn.run(request, "", context);
 
 		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());

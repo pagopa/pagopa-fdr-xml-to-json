@@ -1,7 +1,6 @@
 package it.gov.pagopa.fdrxmltojson;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -11,6 +10,7 @@ import static org.mockito.Mockito.*;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -111,7 +111,10 @@ class FdrXmlErrorTest {
 			entities.add(entity);
 		}
 		lenient().when(mockTableClient.listEntities())
-		.thenReturn(TestUtil.createPagedIterable(new IterableStream<>(entities)));
+				.thenReturn(TestUtil.createPagedIterable(new IterableStream<>(entities)));
+
+		lenient().when(mockTableClient.listEntities(any(), any(), any()))
+				.thenReturn(TestUtil.createPagedIterable(new IterableStream<>(entities)));
 
 		lenient().when(mockTableClient.getEntity(anyString(), anyString())).thenReturn(entities.get(0));
 
@@ -183,5 +186,31 @@ class FdrXmlErrorTest {
 		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
 	}
 
+	@Test
+	void testRunErrorRecovery_withValidPartitionAndRowKeys() {
+		when(request.getBody()).thenReturn(Optional.of("{\"partitionKey\":\"2025-03-26\",\"rowKeys\":[\"0f9aa641-5cd7-474d-a40b-9b815aa02629\",\"1652bccb-37be-4c25-94bb-45cbc711be56\"]}"));
+		HttpResponseMessage response = fdrXmlError.runErrorRecovery(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatus());
+	}
+
+	@Test
+	void testRunErrorRecovery_withoutPartition() {
+		when(request.getBody()).thenReturn(Optional.of("{\"partitionKey\":\"\",\"rowKeys\":[\"0f9aa641-5cd7-474d-a40b-9b815aa02629\",\"1652bccb-37be-4c25-94bb-45cbc711be56\"]}"));
+		HttpResponseMessage response = fdrXmlError.runErrorRecovery(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatus());
+	}
+
+	@Test
+	void testRunErrorRecovery_withValidPartitionAndNoRowKeys() {
+		when(request.getBody()).thenReturn(Optional.of("{\"partitionKey\":\"2025-03-26\",\"rowKeys\":[]}"));
+		HttpResponseMessage response = fdrXmlError.runErrorRecovery(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatus());
+	}
 
 }

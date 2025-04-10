@@ -16,7 +16,6 @@ import it.gov.pagopa.fdrxmltojson.model.ErrorRecoveryRequest;
 import it.gov.pagopa.fdrxmltojson.model.ErrorRecoveryResponse;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.security.InvalidParameterException;
 import java.time.Duration;
@@ -132,7 +131,6 @@ public class FdrXmlError {
 					.body("PartitionKey not found")
 					.build();
 		}
-
 
 		if (errorRecoveryRequest.getRowKeys() == null || errorRecoveryRequest.getRowKeys().isEmpty()) {
 			Map<String, ErrorRecoveryResponse> response = processAllEntitiesByPartitionKey(context, request, errorRecoveryRequest.getPartitionKey());
