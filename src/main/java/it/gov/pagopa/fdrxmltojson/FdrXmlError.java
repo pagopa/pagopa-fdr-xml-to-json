@@ -65,7 +65,7 @@ public class FdrXmlError {
 			String rowKey = request.getQueryParameters().get("rowKey");
 
 			if(partitionKey != null && rowKey != null) {
-				ErrorRecoveryResponse response = processEntity(context, request, partitionKey, rowKey);
+				ErrorRecoveryResponse response = processEntity(context, partitionKey, rowKey);
 
 				log(logger, Level.INFO, messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s executed", operation));
 
@@ -160,7 +160,6 @@ public class FdrXmlError {
 	}
 
 	private ErrorRecoveryResponse processEntity(ExecutionContext context,
-												HttpRequestMessage<Optional<String>> request,
 												String partitionKey, String rowKey) {
 
 		TableClient tableClient = StorageAccountUtil.getTableClient();
@@ -236,7 +235,7 @@ public class FdrXmlError {
 		Map<String, ErrorRecoveryResponse> responses = new HashMap<>();
 		while (iterator.hasNext()) {
 			TableEntity row = iterator.next();
-			ErrorRecoveryResponse response = processEntity(context, request, row.getPartitionKey(), row.getRowKey());
+			ErrorRecoveryResponse response = processEntity(context, row.getPartitionKey(), row.getRowKey());
 			responses.put(row.getRowKey(), response);
 		}
 		return responses;

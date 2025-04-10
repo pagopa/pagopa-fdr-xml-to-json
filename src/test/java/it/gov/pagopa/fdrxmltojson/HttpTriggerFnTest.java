@@ -127,8 +127,6 @@ class HttpTriggerFnTest {
 
 	@Test
 	void testRun_withValidFilename() {
-//		when(request.getQueryParameters()).thenReturn(Map.of("filename", "filename.xml.zip"));
-
 		HttpResponseMessage response = httpTriggerFn.run(request, "filename.xml.zip", context);
 
 		assertNotNull(response);
