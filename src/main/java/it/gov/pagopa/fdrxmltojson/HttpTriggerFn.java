@@ -8,6 +8,10 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdrxmltojson.model.AppConstant;
 import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.security.InvalidParameterException;
