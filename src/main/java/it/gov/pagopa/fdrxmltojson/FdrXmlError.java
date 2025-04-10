@@ -77,7 +77,7 @@ public class FdrXmlError {
 						.build();
 
 			} else {
-				Map<String, ErrorRecoveryResponse> response = processAllEntities(context, request);
+				Map<String, ErrorRecoveryResponse> response = processAllEntities(context);
 				HttpStatus status = response.values().stream()
 						.anyMatch(i -> "KO".equals(i.getStatus())) ?
 						HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.OK;
@@ -133,7 +133,7 @@ public class FdrXmlError {
 		}
 
 		if (errorRecoveryRequest.getRowKeys() == null || errorRecoveryRequest.getRowKeys().isEmpty()) {
-			Map<String, ErrorRecoveryResponse> response = processAllEntitiesByPartitionKey(context, request, errorRecoveryRequest.getPartitionKey());
+			Map<String, ErrorRecoveryResponse> response = processAllEntitiesByPartitionKey(context, errorRecoveryRequest.getPartitionKey());
 			HttpStatus status = response.values().stream()
 					.anyMatch(i -> "KO".equals(i.getStatus())) ?
 					HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.OK;
@@ -144,7 +144,7 @@ public class FdrXmlError {
 		}
 		else {
 			Map<String, ErrorRecoveryResponse> response = processAllEntitiesByPartitionKeyAndRowKeys(
-					context, request, errorRecoveryRequest.getPartitionKey(), errorRecoveryRequest.getRowKeys());
+					context, errorRecoveryRequest.getPartitionKey(), errorRecoveryRequest.getRowKeys());
 			HttpStatus status = response.values().stream()
 					.anyMatch(i -> "KO".equals(i.getStatus())) ?
 					HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.OK;
@@ -199,13 +199,13 @@ public class FdrXmlError {
 				.build();
 	}
 
-	private Map<String, ErrorRecoveryResponse> processAllEntities(ExecutionContext context, HttpRequestMessage<Optional<String>> request) {
+	private Map<String, ErrorRecoveryResponse> processAllEntities(ExecutionContext context) {
 		TableClient tableClient = StorageAccountUtil.getTableClient();
 		Iterator<TableEntity> itr = tableClient.listEntities().iterator();
-		return processBatchEntities(context, request, itr);
+		return processBatchEntities(context, itr);
 	}
 
-	private Map<String, ErrorRecoveryResponse> processAllEntitiesByPartitionKey(ExecutionContext context, HttpRequestMessage<Optional<String>> request, String partitionKey) {
+	private Map<String, ErrorRecoveryResponse> processAllEntitiesByPartitionKey(ExecutionContext context, String partitionKey) {
 		TableClient tableClient = StorageAccountUtil.getTableClient();
 
 		ListEntitiesOptions listEntitiesOptions = new ListEntitiesOptions()
@@ -213,10 +213,10 @@ public class FdrXmlError {
 
 		Iterator<TableEntity> itr = tableClient.listEntities(listEntitiesOptions, Duration.ofSeconds(30), null).iterator();
 
-		return processBatchEntities(context, request, itr);
+		return processBatchEntities(context, itr);
 	}
 
-	private Map<String, ErrorRecoveryResponse> processAllEntitiesByPartitionKeyAndRowKeys(ExecutionContext context, HttpRequestMessage<Optional<String>> request, String partitionKey, List<String> rowKeys) {
+	private Map<String, ErrorRecoveryResponse> processAllEntitiesByPartitionKeyAndRowKeys(ExecutionContext context, String partitionKey, List<String> rowKeys) {
 		TableClient tableClient = StorageAccountUtil.getTableClient();
 
 		String rowKeyString = rowKeys.stream()
@@ -228,10 +228,10 @@ public class FdrXmlError {
 
 		Iterator<TableEntity> itr = tableClient.listEntities(listEntitiesOptions, Duration.ofSeconds(30), null).iterator();
 
-		return processBatchEntities(context, request, itr);
+		return processBatchEntities(context, itr);
 	}
 
-	private Map<String, ErrorRecoveryResponse> processBatchEntities(ExecutionContext context, HttpRequestMessage<Optional<String>> request, Iterator<TableEntity> iterator) {
+	private Map<String, ErrorRecoveryResponse> processBatchEntities(ExecutionContext context, Iterator<TableEntity> iterator) {
 		Map<String, ErrorRecoveryResponse> responses = new HashMap<>();
 		while (iterator.hasNext()) {
 			TableEntity row = iterator.next();
