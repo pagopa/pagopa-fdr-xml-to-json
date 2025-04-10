@@ -79,7 +79,7 @@ class BlobTriggerFnTest {
 		// generating input
 		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		GenericResponse genericResponse = new GenericResponse();
 		genericResponse.setMessage("OK");
@@ -103,7 +103,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-        InternalPspApi pspApi = getPspApi();
+        InternalPspApi pspApi = TestUtil.getPspApi();
 
 		when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(new ApiException("Test Exception"));
 
@@ -120,7 +120,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		String responseBody = String.format("{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"appErrorCode\":\"%s\",\"errors\":[{\"path\":\"<detail.path.if-exist>\",\"message\":\"<detail.message>\"}]}", AppConstant.FDR_FLOW_ALREADY_CREATED);
 		ApiException apiException = new ApiException(400, "message", new HashMap<>(), responseBody);
@@ -142,7 +142,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		String responseBody = "{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"errors\":[{\"path\":\"<detail.path.if-exist>\",\"message\":\"<detail.message>\"}]}";
 		ApiException apiException = new ApiException(400, "message", new HashMap<>(), responseBody);
@@ -161,7 +161,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		String responseBody = "{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"appErrorCode\":\"FDR-XXXX\",\"errors\":[{\"path\":\"<detail.path.if-exist>\",\"message\":\"<detail.message>\"}]}";
 		ApiException apiException = new ApiException(400, "message", new HashMap<>(), responseBody);
@@ -180,7 +180,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		ApiException apiException = mock(ApiException.class);
 		Whitebox.setInternalState(apiException, "code", 404);
@@ -200,7 +200,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		GenericResponse genericResponse = new GenericResponse();
 		genericResponse.setMessage("OK");
@@ -221,7 +221,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		GenericResponse genericResponse = new GenericResponse();
 		genericResponse.setMessage("OK");
@@ -244,7 +244,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		GenericResponse genericResponse = new GenericResponse();
 		genericResponse.setMessage("OK");
@@ -267,7 +267,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		GenericResponse genericResponse = new GenericResponse();
 		genericResponse.setMessage("OK");
@@ -293,7 +293,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		GenericResponse genericResponse = new GenericResponse();
 		genericResponse.setMessage("OK");
@@ -316,7 +316,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		GenericResponse genericResponse = new GenericResponse();
 		genericResponse.setMessage("OK");
@@ -339,7 +339,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		GenericResponse genericResponse = new GenericResponse();
 		genericResponse.setMessage("OK");
@@ -366,7 +366,7 @@ class BlobTriggerFnTest {
 
 		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
-		InternalPspApi pspApi = getPspApi();
+		InternalPspApi pspApi = TestUtil.getPspApi();
 
 		GenericResponse genericResponse = new GenericResponse();
 		genericResponse.setMessage("OK");
@@ -381,12 +381,4 @@ class BlobTriggerFnTest {
 		Assertions.assertThrows(AppException.class,
 				() -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
 	}
-
-	private InternalPspApi getPspApi() {
-		InternalPspApi pspApi = mock(InternalPspApi.class);
-		Whitebox.setInternalState(FdR3ClientUtil.class, "pspApi", pspApi);
-		return pspApi;
-	}
-
-
 }
