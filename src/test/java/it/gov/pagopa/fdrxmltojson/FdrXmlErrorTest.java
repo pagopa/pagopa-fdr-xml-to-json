@@ -3,11 +3,10 @@ package it.gov.pagopa.fdrxmltojson;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Logger;
 
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,6 +66,9 @@ class FdrXmlErrorTest {
 
 	@Mock
 	private TableClient mockTableClient;
+
+	@Mock
+	private FdrXmlCommon fdrXmlCommon;
 
 	private MockedStatic<FdR3ClientUtil> mockFdR3ClientUtil;
 
@@ -167,4 +170,18 @@ class FdrXmlErrorTest {
 		assertNotNull(response);
 		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
 	}
+
+	@Test
+	@SneakyThrows
+	void testRun_withException_2() {
+		when(request.getQueryParameters()).thenReturn(Map.of("partitionKey", "testPartition", "rowKey", "testRow"));
+		doThrow(new IOException("Simulated Exception")).when(fdrXmlCommon).convertXmlToJson(any(), anyString(), any(), anyString(), anyLong(), anyBoolean());
+
+		HttpResponseMessage response = fdrXmlError.run(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
+	}
+
+
 }
