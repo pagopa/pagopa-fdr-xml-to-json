@@ -7,6 +7,8 @@ import lombok.experimental.UtilityClass;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.stubbing.Answer;
+import org.openapitools.client.api.InternalPspApi;
+import org.powermock.reflect.Whitebox;
 import reactor.core.publisher.Mono;
 
 import java.io.ByteArrayOutputStream;
@@ -119,6 +121,12 @@ public class TestUtil {
 
         PagedFlux<TableEntity> pagedFlux = new PagedFlux<>(continuationToken -> Mono.just(pagedResponse));
         return new PagedIterable<>(pagedFlux);
+    }
+
+    public static InternalPspApi getPspApi() {
+        InternalPspApi pspApi = mock(InternalPspApi.class);
+        Whitebox.setInternalState(FdR3ClientUtil.class, "pspApi", pspApi);
+        return pspApi;
     }
 
 }

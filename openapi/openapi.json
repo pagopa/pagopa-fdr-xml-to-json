@@ -2,11 +2,11 @@
   "openapi": "3.0.1",
   "info": {
     "title": "FdR - XML to JSON ${service}",
-    "version": "1.0.6",
+    "version": "1.0.6-1-PAGOPA-2984-fix-error-trigger",
     "description": "FDR XML to JSON API REST"
   },
   "paths": {
-    "/xmlerror": {
+    "/recover/errors": {
       "get": {
         "summary": "Retry XML Error Processing",
         "operationId": "XmlErrorRetry",
@@ -52,19 +52,74 @@
             }
           }
         }
+      },
+      "post": {
+        "summary": "Recover entities by partitionKey and rowKeys",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "partitionKey": {
+                    "type": "string",
+                    "example": "2025-03-26"
+                  },
+                  "rowKeys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "0f9aa641-5cd7-474d-a40b-9b815aa02629",
+                      "1652bccb-37be-4c25-94bb-45cbc711be56"
+                    ]
+                  }
+                },
+                "required": [
+                  "partitionKey"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recovered entities successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
       }
     },
-    "/fdr": {
+    "/recover/fdr/{filename}": {
       "get": {
         "summary": "Retry to processing filename",
         "operationId": "HttpTriggerFn",
         "parameters": [
           {
             "name": "filename",
-            "in": "query",
-            "required": false,
+            "in": "path",
+            "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "example": "2025-03-1488888888888-538267747_53d74eb-b-cb74-4b81-b69d-c49390996dad.xml.zip"
             },
             "description": "Blob filename to recover"
           }

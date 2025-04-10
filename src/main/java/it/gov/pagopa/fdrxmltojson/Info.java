@@ -4,13 +4,12 @@ import com.microsoft.azure.functions.*;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import it.gov.pagopa.fdrxmltojson.model.AppInfo;
 
 import java.io.InputStream;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.logging.Logger;
-
-import it.gov.pagopa.fdrxmltojson.model.AppInfo;
 
 
 /**

@@ -127,9 +127,7 @@ class HttpTriggerFnTest {
 
 	@Test
 	void testRun_withValidFilename() {
-		when(request.getQueryParameters()).thenReturn(Map.of("filename", "filename.xml.zip"));
-
-		HttpResponseMessage response = httpTriggerFn.run(request, context);
+		HttpResponseMessage response = httpTriggerFn.run(request, "filename.xml.zip", context);
 
 		assertNotNull(response);
 		assertEquals(HttpStatus.OK, response.getStatus());
@@ -137,9 +135,7 @@ class HttpTriggerFnTest {
 
 	@Test
 	void testRun_withoutFilename() {
-		when(request.getQueryParameters()).thenReturn(Map.of());
-
-		HttpResponseMessage response = httpTriggerFn.run(request, context);
+		HttpResponseMessage response = httpTriggerFn.run(request, "", context);
 
 		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
 	}

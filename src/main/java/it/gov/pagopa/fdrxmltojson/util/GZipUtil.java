@@ -2,8 +2,9 @@ package it.gov.pagopa.fdrxmltojson.util;
 
 import lombok.experimental.UtilityClass;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 
 @UtilityClass

@@ -1,17 +1,16 @@
 package it.gov.pagopa.fdrxmltojson;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -20,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Logger;
 
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,6 +67,9 @@ class FdrXmlErrorTest {
 	@Mock
 	private TableClient mockTableClient;
 
+	@Mock
+	private FdrXmlCommon fdrXmlCommon;
+
 	private MockedStatic<FdR3ClientUtil> mockFdR3ClientUtil;
 
 	private MockedStatic<StorageAccountUtil> mockStorageAccountUtil;
@@ -108,7 +111,10 @@ class FdrXmlErrorTest {
 			entities.add(entity);
 		}
 		lenient().when(mockTableClient.listEntities())
-		.thenReturn(TestUtil.createPagedIterable(new IterableStream<>(entities)));
+				.thenReturn(TestUtil.createPagedIterable(new IterableStream<>(entities)));
+
+		lenient().when(mockTableClient.listEntities(any(), any(), any()))
+				.thenReturn(TestUtil.createPagedIterable(new IterableStream<>(entities)));
 
 		lenient().when(mockTableClient.getEntity(anyString(), anyString())).thenReturn(entities.get(0));
 
@@ -167,4 +173,44 @@ class FdrXmlErrorTest {
 		assertNotNull(response);
 		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
 	}
+
+	@Test
+	@SneakyThrows
+	void testRun_withException_2() {
+		when(request.getQueryParameters()).thenReturn(Map.of("partitionKey", "testPartition", "rowKey", "testRow"));
+		doThrow(new IOException("Simulated Exception")).when(fdrXmlCommon).convertXmlToJson(any(), anyString(), any(), anyString(), anyLong(), anyBoolean());
+
+		HttpResponseMessage response = fdrXmlError.run(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatus());
+	}
+
+	@Test
+	void testRunErrorRecovery_withValidPartitionAndRowKeys() {
+		when(request.getBody()).thenReturn(Optional.of("{\"partitionKey\":\"2025-03-26\",\"rowKeys\":[\"0f9aa641-5cd7-474d-a40b-9b815aa02629\",\"1652bccb-37be-4c25-94bb-45cbc711be56\"]}"));
+		HttpResponseMessage response = fdrXmlError.runErrorRecovery(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatus());
+	}
+
+	@Test
+	void testRunErrorRecovery_withoutPartition() {
+		when(request.getBody()).thenReturn(Optional.of("{\"partitionKey\":\"\",\"rowKeys\":[\"0f9aa641-5cd7-474d-a40b-9b815aa02629\",\"1652bccb-37be-4c25-94bb-45cbc711be56\"]}"));
+		HttpResponseMessage response = fdrXmlError.runErrorRecovery(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatus());
+	}
+
+	@Test
+	void testRunErrorRecovery_withValidPartitionAndNoRowKeys() {
+		when(request.getBody()).thenReturn(Optional.of("{\"partitionKey\":\"2025-03-26\",\"rowKeys\":[]}"));
+		HttpResponseMessage response = fdrXmlError.runErrorRecovery(request, context);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatus());
+	}
+
 }

@@ -8,7 +8,7 @@ import jakarta.xml.bind.JAXBException;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
-import java.util.*;
+import java.util.Map;
 
 /**
  * Azure Functions with Azure Queue trigger.

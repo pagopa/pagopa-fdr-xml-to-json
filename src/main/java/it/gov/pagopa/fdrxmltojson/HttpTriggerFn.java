@@ -2,6 +2,7 @@ package it.gov.pagopa.fdrxmltojson;
 
 import com.microsoft.azure.functions.*;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
+import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdrxmltojson.model.AppConstant;
@@ -30,8 +31,9 @@ public class HttpTriggerFn {
 	public HttpResponseMessage run (
 			@HttpTrigger(name = "HttpTriggerFn",
 			methods = {HttpMethod.GET},
-			route = "fdr",
+			route = "recover/fdr/{filename}",
 			authLevel = AuthorizationLevel.ANONYMOUS) HttpRequestMessage<Optional<String>> request,
+			@BindingName("filename") String filename,
 			final ExecutionContext context) {
 
 		Logger logger = context.getLogger();
@@ -41,8 +43,6 @@ public class HttpTriggerFn {
 		logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", operation));
 
 		try {
-			String filename = request.getQueryParameters().get("filename");
-
 			if (filename.isEmpty()) {
 				throw new InvalidParameterException("Filename not found");
 			}

@@ -14,10 +14,14 @@ import it.gov.pagopa.pagopa_api.node.nodeforpsp.NodoInviaFlussoRendicontazioneRe
 import jakarta.xml.bind.JAXBException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.openapitools.client.ApiException;
-import org.openapitools.client.model.*;
+import org.openapitools.client.model.AddPaymentRequest;
+import org.openapitools.client.model.CreateRequest;
+import org.openapitools.client.model.ErrorResponse;
+import org.openapitools.client.model.Payment;
 
 import javax.xml.stream.XMLStreamException;
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
