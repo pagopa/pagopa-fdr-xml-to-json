@@ -169,3 +169,4 @@ httptrigger:
     AzureFunctionsJobHost__functions__0: "Info"
     AzureFunctionsJobHost__functions__1: "XmlErrorRetry"
     AzureFunctionsJobHost__functions__2: "HttpTriggerFn"
+    AzureFunctionsJobHost__functions__3: "ErrorRecoveryFn"
