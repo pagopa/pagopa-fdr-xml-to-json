@@ -117,6 +117,8 @@ blobtrigger:
     path: /pagopa-fdr-xml-to-json/blobtrigger-notuser/(.*)
   autoscaling:
     !!merge <<: *autoscaling
+    minReplica: 3
+    maxReplica: 5
   resources:
     !!merge <<: *resources
     requests:
