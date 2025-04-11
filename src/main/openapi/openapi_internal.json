@@ -1206,14 +1206,14 @@
             "example": "SEPA - Bonifico xzy"
           },
           "regulationDate": {
-            "description": "[XML FlussoRiversamento]=[dataRegolamento]",
             "type": "string",
+            "example": "2023-04-03",
+            "description": "[XML FlussoRiversamento]=[dataRegolamento]",
             "allOf": [
               {
-                "$ref": "#/components/schemas/Instant"
+                "$ref": "#/components/schemas/LocalDate"
               }
-            ],
-            "example": "2023-04-03T12:00:30.900000Z"
+            ]
           },
           "bicCodePouringBank": {
             "description": "[XML FlussoRiversamento]=[codiceBicBancaDiRiversamento]",
@@ -1556,12 +1556,13 @@
           },
           "regulationDate": {
             "type": "string",
+            "example": "2023-04-03",
+            "description": "[XML FlussoRiversamento]=[dataRegolamento]",
             "allOf": [
               {
-                "$ref": "#/components/schemas/Instant"
+                "$ref": "#/components/schemas/LocalDate"
               }
-            ],
-            "example": "2023-04-03T12:00:30.900000Z"
+            ]
           },
           "bicCodePouringBank": {
             "type": "string",
@@ -1668,12 +1669,13 @@
           },
           "regulationDate": {
             "type": "string",
+            "example": "2023-04-03",
+            "description": "[XML FlussoRiversamento]=[dataRegolamento]",
             "allOf": [
               {
-                "$ref": "#/components/schemas/Instant"
+                "$ref": "#/components/schemas/LocalDate"
               }
-            ],
-            "example": "2023-04-03T12:00:30.900000Z"
+            ]
           },
           "bicCodePouringBank": {
             "type": "string",
@@ -1747,6 +1749,10 @@
         "format": "date-time",
         "type": "string",
         "example": "2022-03-10T16:15:50Z"
+      },
+      "LocalDate": {
+        "type": "string",
+        "format": "date"
       },
       "Metadata": {
         "type": "object",
