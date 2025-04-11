@@ -2,7 +2,7 @@ microservice-chart: &microservice-chart
   namespace: "fdr"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-xml-to-json
-    tag: "1.0.7"
+    tag: "1.0.7-2-fix-heap-prod"
     pullPolicy: Always
   livenessProbe:
     handlerType: tcpSocket
@@ -117,9 +117,17 @@ blobtrigger:
     path: /pagopa-fdr-xml-to-json/blobtrigger-notuser/(.*)
   autoscaling:
     !!merge <<: *autoscaling
+  resources:
+    !!merge <<: *resources
+    requests:
+      memory: "640Mi"
+      cpu: "0.25"
+    limits:
+      memory: "1Gi"
+      cpu: "0.40"
   envConfig:
     !!merge <<: *envConfig
-    JAVA_OPTS: "-XX:MinHeapSize=300m -XX:MaxHeapSize=600m -XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30"
+    JAVA_OPTS: "-XX:MinHeapSize=480m -XX:MaxHeapSize=600m -XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30"
     WEBSITE_SITE_NAME: "pagopafdrxmltojson-blobtrigger" # required to show cloud role name in application insights
     AzureFunctionsWebHost__hostid: "fdr-xml-to-json-blob-trigger"
     AzureFunctionsJobHost__functions__0: "Info"
@@ -161,3 +169,4 @@ httptrigger:
     AzureFunctionsJobHost__functions__0: "Info"
     AzureFunctionsJobHost__functions__1: "XmlErrorRetry"
     AzureFunctionsJobHost__functions__2: "HttpTriggerFn"
+    AzureFunctionsJobHost__functions__3: "ErrorRecoveryFn"
