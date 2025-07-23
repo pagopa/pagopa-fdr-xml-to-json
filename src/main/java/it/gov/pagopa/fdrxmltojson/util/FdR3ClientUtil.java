@@ -105,7 +105,7 @@ public class FdR3ClientUtil {
     private Payment getPayment(CtDatiSingoliPagamenti ctDatiSingoliPagamenti, int index){
         Payment payment = new Payment();
         payment.setIndex((long) index);
-        payment.setIdTransfer(ctDatiSingoliPagamenti.getIndiceDatiSingoloPagamento().longValue());
+        payment.setIdTransfer(Optional.ofNullable(ctDatiSingoliPagamenti.getIndiceDatiSingoloPagamento()).orElse(1).longValue());
         payment.setIuv(ctDatiSingoliPagamenti.getIdentificativoUnivocoVersamento());
         payment.setIur(ctDatiSingoliPagamenti.getIdentificativoUnivocoRiscossione());
         payment.setPay(ctDatiSingoliPagamenti.getSingoloImportoPagato().doubleValue());
