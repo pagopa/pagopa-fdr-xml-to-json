@@ -93,12 +93,12 @@ public class FdR3ClientUtil {
 
     private Receiver getReceiver(NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest, CtFlussoRiversamento ctFlussoRiversamento){
         String organizationId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoDominio();
-        String organizationName = ctFlussoRiversamento.getIstitutoRicevente().getDenominazioneRicevente();
+        String organizationName = FormatterUtil.sanitize(ctFlussoRiversamento.getIstitutoRicevente().getDenominazioneRicevente());
 
         Receiver receiver = new Receiver();
         receiver.setId(ctFlussoRiversamento.getIstitutoRicevente().getIdentificativoUnivocoRicevente().getCodiceIdentificativoUnivoco());
         receiver.setOrganizationId(organizationId);
-        receiver.setOrganizationName(organizationName!=null?organizationName:organizationId);
+        receiver.setOrganizationName(organizationName !=null ? organizationName : organizationId);
         return receiver;
     }
 
