@@ -5,7 +5,7 @@
 
     <groupId>it.gov.pagopa</groupId>
     <artifactId>fdrxmltojson</artifactId>
-    <version>1.0.8-1-fix-conversion-indicedatisingolopagamento</version>
+    <version>1.0.8-2-PIDM-843</version>
     <packaging>jar</packaging>
 
     <name>FDR XML to JSON Fn</name>

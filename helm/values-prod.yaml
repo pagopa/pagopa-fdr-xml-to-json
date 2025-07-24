@@ -2,7 +2,7 @@ microservice-chart: &microservice-chart
   namespace: "fdr"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-xml-to-json
-    tag: "1.0.8-1-fix-conversion-indicedatisingolopagamento"
+    tag: "1.0.8-2-PIDM-843"
     pullPolicy: Always
   livenessProbe:
     handlerType: tcpSocket
