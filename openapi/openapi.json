@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "FdR - XML to JSON ${service}",
-    "version": "1.0.8",
+    "version": "1.0.8-2-PIDM-843",
     "description": "FDR XML to JSON API REST"
   },
   "paths": {

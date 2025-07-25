@@ -93,19 +93,19 @@ public class FdR3ClientUtil {
 
     private Receiver getReceiver(NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest, CtFlussoRiversamento ctFlussoRiversamento){
         String organizationId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoDominio();
-        String organizationName = ctFlussoRiversamento.getIstitutoRicevente().getDenominazioneRicevente();
+        String organizationName = FormatterUtil.sanitize(ctFlussoRiversamento.getIstitutoRicevente().getDenominazioneRicevente());
 
         Receiver receiver = new Receiver();
         receiver.setId(ctFlussoRiversamento.getIstitutoRicevente().getIdentificativoUnivocoRicevente().getCodiceIdentificativoUnivoco());
         receiver.setOrganizationId(organizationId);
-        receiver.setOrganizationName(organizationName!=null?organizationName:organizationId);
+        receiver.setOrganizationName(organizationName !=null ? organizationName : organizationId);
         return receiver;
     }
 
     private Payment getPayment(CtDatiSingoliPagamenti ctDatiSingoliPagamenti, int index){
         Payment payment = new Payment();
         payment.setIndex((long) index);
-        payment.setIdTransfer(ctDatiSingoliPagamenti.getIndiceDatiSingoloPagamento().longValue());
+        payment.setIdTransfer(Optional.ofNullable(ctDatiSingoliPagamenti.getIndiceDatiSingoloPagamento()).orElse(1).longValue());
         payment.setIuv(ctDatiSingoliPagamenti.getIdentificativoUnivocoVersamento());
         payment.setIur(ctDatiSingoliPagamenti.getIdentificativoUnivocoRiscossione());
         payment.setPay(ctDatiSingoliPagamenti.getSingoloImportoPagato().doubleValue());

@@ -10,4 +10,8 @@ public class FormatterUtil {
         String suffix = String.format(" [sessionId: %s][invocationId: %s][psp: %s][filename: %s]", sessionId, invocationId, pspId, fileName);
         return String.format(message, args) + suffix;
     }
+
+    public static String sanitize(String input) {
+        return input == null ? null : input.replaceAll("[\\n\\r\\t]", "");
+    }
 }
