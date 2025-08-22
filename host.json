@@ -24,13 +24,17 @@
     }
   },
   "logging": {
+    "console": {
+      "isEnabled": true,
+      "format": "json"
+    },
     "logLevel": {
       "default": "Error",
-      "Function.BlobEventProcessor": "Error",
-      "Function.QueueEventProcessor": "Error",
-      "Function.XmlErrorRetry": "Error",
-      "Function.HttpTriggerFn": "Error",
-      "Function.ErrorRecoveryFn": "Error"
+      "Function.BlobEventProcessor": "Information",
+      "Function.QueueEventProcessor": "Information",
+      "Function.XmlErrorRetry": "Information",
+      "Function.HttpTriggerFn": "Information",
+      "Function.ErrorRecoveryFn": "Information"
     },
     "applicationInsights": {
       "samplingSettings": {
