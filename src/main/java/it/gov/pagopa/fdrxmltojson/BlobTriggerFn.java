@@ -5,6 +5,7 @@ import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import jakarta.xml.bind.JAXBException;
+import org.slf4j.MDC;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
@@ -31,7 +32,14 @@ public class BlobTriggerFn {
 			String sessionId = blobMetadata.getOrDefault("sessionId", "NA");
 			FdrXmlCommon fdrXmlCommon = new FdrXmlCommon();
 
-			fdrXmlCommon.convertXmlToJson(context, sessionId, content, fileName, 0, false);
+			try {
+				MDC.put("sessionId", sessionId);
+				MDC.put("invocationId", context.getInvocationId());
+				MDC.put("fileName", fileName);
+				fdrXmlCommon.convertXmlToJson(content, 0, false);
+			} finally {
+				MDC.clear();
+			}
 
 		}
     }

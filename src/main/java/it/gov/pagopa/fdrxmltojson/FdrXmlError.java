@@ -15,23 +15,22 @@ import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.model.ErrorRecoveryRequest;
 import it.gov.pagopa.fdrxmltojson.model.ErrorRecoveryResponse;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.slf4j.MDC;
 
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
-import static it.gov.pagopa.fdrxmltojson.util.FormatterUtil.messageFormat;
 
 
 /**
  * Azure Functions with Azure Http trigger.
  */
+@Slf4j
 public class FdrXmlError {
 
 	private FdrXmlCommon fdrXmlCommon;
@@ -53,50 +52,49 @@ public class FdrXmlError {
 			authLevel = AuthorizationLevel.ANONYMOUS) HttpRequestMessage<Optional<String>> request,
 			final ExecutionContext context) {
 
-		Logger logger = context.getLogger();
 		String triggeredAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-		String operation = "XmlErrorRetry ";
-		operation = String.format("%s triggered at %s",  operation, triggeredAt);
-
-		log(logger, Level.INFO, messageFormat("NA", context.getInvocationId(), "NA", "NA", operation));
+		String operation  = String.format("XmlErrorRetry triggered at %s", triggeredAt);
 
 		try{
+			MDC.put("invocationId", context.getInvocationId());
+			log.info(operation);
 			String partitionKey = request.getQueryParameters().get("partitionKey");
 			String rowKey = request.getQueryParameters().get("rowKey");
 
+			HttpResponseMessage responseMessage;
 			if(partitionKey != null && rowKey != null) {
-				ErrorRecoveryResponse response = processEntity(context, partitionKey, rowKey);
-
-				log(logger, Level.INFO, messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s executed", operation));
+				ErrorRecoveryResponse response = processEntity(partitionKey, rowKey);
 
 				HttpStatus status = "KO".equals(response.getStatus()) ?
 						HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.OK;
-				return request
-						.createResponseBuilder(status)
-						.body(response.getDescription())
-						.build();
+                responseMessage = request
+                        .createResponseBuilder(status)
+                        .body(response.getDescription())
+                        .build();
 
 			} else {
-				Map<String, ErrorRecoveryResponse> response = processAllEntities(context);
+				Map<String, ErrorRecoveryResponse> response = processAllEntities();
 				HttpStatus status = response.values().stream()
 						.anyMatch(i -> "KO".equals(i.getStatus())) ?
 						HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.OK;
 
-				log(logger, Level.INFO, messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s executed", operation));
-
-				return request
+				responseMessage = request
 						.createResponseBuilder(status)
 						.body(response)
 						.build();
 			}
+			log.info("{} executed", operation);
+			return responseMessage;
 
 		} catch (Exception e) {
-			log(logger, Level.SEVERE, messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s error: %s", operation, e.getMessage()));
+			log.error("{} error", operation, e);
 
 			return request
 					.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(HttpStatus.INTERNAL_SERVER_ERROR + ": " + ExceptionUtils.getStackTrace(e))
 					.build();
+		} finally {
+			MDC.clear();
 		}
 	}
 
@@ -109,58 +107,56 @@ public class FdrXmlError {
 					authLevel = AuthorizationLevel.ANONYMOUS) HttpRequestMessage<Optional<String>> request,
 			final ExecutionContext context) {
 
-		Logger logger = context.getLogger();
 		String triggeredAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-		String operation = "ErrorRecoveryFn ";
-		operation = String.format("%s triggered at %s",  operation, triggeredAt);
+		String operation = String.format("ErrorRecoveryFn triggered at %s", triggeredAt);
 
-		log(logger, Level.INFO, messageFormat("NA", context.getInvocationId(), "NA", "NA", operation));
-
-		String body = request.getBody().orElseThrow(() -> new InvalidParameterException("Body not found"));
-		ObjectMapper mapper = new ObjectMapper();
-		ErrorRecoveryRequest errorRecoveryRequest;
 		try {
-			errorRecoveryRequest = mapper.readValue(body, ErrorRecoveryRequest.class);
-		} catch (JsonProcessingException e) {
-			throw new InvalidParameterException("Json processing error");
-		}
+			MDC.put("invocationId", context.getInvocationId());
+			log.info(operation);
 
-		if (errorRecoveryRequest.getPartitionKey().isEmpty()) {
-			return request
-					.createResponseBuilder(HttpStatus.BAD_REQUEST)
-					.body("PartitionKey not found")
-					.build();
-		}
+			String body = request.getBody().orElseThrow(() -> new InvalidParameterException("Body not found"));
+			ObjectMapper mapper = new ObjectMapper();
+			ErrorRecoveryRequest errorRecoveryRequest;
+			try {
+				errorRecoveryRequest = mapper.readValue(body, ErrorRecoveryRequest.class);
+			} catch (JsonProcessingException e) {
+				throw new InvalidParameterException("Json processing error");
+			}
 
-		if (errorRecoveryRequest.getRowKeys() == null || errorRecoveryRequest.getRowKeys().isEmpty()) {
-			Map<String, ErrorRecoveryResponse> response = processAllEntitiesByPartitionKey(context, errorRecoveryRequest.getPartitionKey());
-			HttpStatus status = response.values().stream()
-					.anyMatch(i -> "KO".equals(i.getStatus())) ?
-					HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.OK;
-			return request
-					.createResponseBuilder(status)
-					.body(response)
-					.build();
-		}
-		else {
-			Map<String, ErrorRecoveryResponse> response = processAllEntitiesByPartitionKeyAndRowKeys(
-					context, errorRecoveryRequest.getPartitionKey(), errorRecoveryRequest.getRowKeys());
-			HttpStatus status = response.values().stream()
-					.anyMatch(i -> "KO".equals(i.getStatus())) ?
-					HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.OK;
-			return request
-					.createResponseBuilder(status)
-					.body(response)
-					.build();
+			if (errorRecoveryRequest.getPartitionKey().isEmpty()) {
+				return request
+						.createResponseBuilder(HttpStatus.BAD_REQUEST)
+						.body("PartitionKey not found")
+						.build();
+			}
+
+			if (errorRecoveryRequest.getRowKeys() == null || errorRecoveryRequest.getRowKeys().isEmpty()) {
+				Map<String, ErrorRecoveryResponse> response = processAllEntitiesByPartitionKey(errorRecoveryRequest.getPartitionKey());
+				HttpStatus status = response.values().stream()
+						.anyMatch(i -> "KO".equals(i.getStatus())) ?
+						HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.OK;
+				return request
+						.createResponseBuilder(status)
+						.body(response)
+						.build();
+			}
+			else {
+				Map<String, ErrorRecoveryResponse> response = processAllEntitiesByPartitionKeyAndRowKeys(
+						errorRecoveryRequest.getPartitionKey(), errorRecoveryRequest.getRowKeys());
+				HttpStatus status = response.values().stream()
+						.anyMatch(i -> "KO".equals(i.getStatus())) ?
+						HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.OK;
+				return request
+						.createResponseBuilder(status)
+						.body(response)
+						.build();
+			}
+		} finally {
+			MDC.clear();
 		}
 	}
 
-	private void log(Logger logger, Level level, String message) {
-		logger.log(level, () -> message);
-	}
-
-	private ErrorRecoveryResponse processEntity(ExecutionContext context,
-												String partitionKey, String rowKey) {
+	private ErrorRecoveryResponse processEntity(String partitionKey, String rowKey) {
 
 		TableClient tableClient = StorageAccountUtil.getTableClient();
 
@@ -182,9 +178,11 @@ public class FdrXmlError {
 		byte[] content = blobData.getContent();
 		String sessionId = blobData.getMetadata().get(AppConstant.columnFieldSessionId);
 
+		MDC.put("sessionId", sessionId);
+		MDC.put("fileName", fileName);
 		try {
 			// retryAttempt to 0 because it is an external call
-			fdrXmlCommon.convertXmlToJson(context, sessionId, content, fileName, 0, true);
+			fdrXmlCommon.convertXmlToJson(content, 0, true);
 			tableClient.deleteEntity(tableEntity);
 		} catch (Exception e) {
 			return ErrorRecoveryResponse.builder()
@@ -199,13 +197,13 @@ public class FdrXmlError {
 				.build();
 	}
 
-	private Map<String, ErrorRecoveryResponse> processAllEntities(ExecutionContext context) {
+	private Map<String, ErrorRecoveryResponse> processAllEntities() {
 		TableClient tableClient = StorageAccountUtil.getTableClient();
 		Iterator<TableEntity> itr = tableClient.listEntities().iterator();
-		return processBatchEntities(context, itr);
+		return processBatchEntities(itr);
 	}
 
-	private Map<String, ErrorRecoveryResponse> processAllEntitiesByPartitionKey(ExecutionContext context, String partitionKey) {
+	private Map<String, ErrorRecoveryResponse> processAllEntitiesByPartitionKey(String partitionKey) {
 		TableClient tableClient = StorageAccountUtil.getTableClient();
 
 		ListEntitiesOptions listEntitiesOptions = new ListEntitiesOptions()
@@ -213,10 +211,10 @@ public class FdrXmlError {
 
 		Iterator<TableEntity> itr = tableClient.listEntities(listEntitiesOptions, Duration.ofSeconds(30), null).iterator();
 
-		return processBatchEntities(context, itr);
+		return processBatchEntities(itr);
 	}
 
-	private Map<String, ErrorRecoveryResponse> processAllEntitiesByPartitionKeyAndRowKeys(ExecutionContext context, String partitionKey, List<String> rowKeys) {
+	private Map<String, ErrorRecoveryResponse> processAllEntitiesByPartitionKeyAndRowKeys(String partitionKey, List<String> rowKeys) {
 		TableClient tableClient = StorageAccountUtil.getTableClient();
 
 		String rowKeyString = rowKeys.stream()
@@ -228,14 +226,14 @@ public class FdrXmlError {
 
 		Iterator<TableEntity> itr = tableClient.listEntities(listEntitiesOptions, Duration.ofSeconds(30), null).iterator();
 
-		return processBatchEntities(context, itr);
+		return processBatchEntities(itr);
 	}
 
-	private Map<String, ErrorRecoveryResponse> processBatchEntities(ExecutionContext context, Iterator<TableEntity> iterator) {
+	private Map<String, ErrorRecoveryResponse> processBatchEntities(Iterator<TableEntity> iterator) {
 		Map<String, ErrorRecoveryResponse> responses = new HashMap<>();
 		while (iterator.hasNext()) {
 			TableEntity row = iterator.next();
-			ErrorRecoveryResponse response = processEntity(context, row.getPartitionKey(), row.getRowKey());
+			ErrorRecoveryResponse response = processEntity(row.getPartitionKey(), row.getRowKey());
 			responses.put(row.getRowKey(), response);
 		}
 		return responses;

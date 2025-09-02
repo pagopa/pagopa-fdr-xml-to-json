@@ -3,7 +3,6 @@ package it.gov.pagopa.fdrxmltojson;
 
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.TableEntity;
-import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpStatus;
 import it.gov.digitpa.schemas._2011.pagamenti.CtDatiSingoliPagamenti;
 import it.gov.digitpa.schemas._2011.pagamenti.CtFlussoRiversamento;
@@ -12,12 +11,15 @@ import it.gov.pagopa.fdrxmltojson.model.ErrorEnum;
 import it.gov.pagopa.fdrxmltojson.util.*;
 import it.gov.pagopa.pagopa_api.node.nodeforpsp.NodoInviaFlussoRendicontazioneRequest;
 import jakarta.xml.bind.JAXBException;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.jetbrains.annotations.NotNull;
 import org.openapitools.client.ApiException;
 import org.openapitools.client.model.AddPaymentRequest;
 import org.openapitools.client.model.CreateRequest;
 import org.openapitools.client.model.ErrorResponse;
 import org.openapitools.client.model.Payment;
+import org.slf4j.MDC;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
@@ -25,26 +27,20 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import static it.gov.pagopa.fdrxmltojson.util.FormatterUtil.messageFormat;
 
-
+@Slf4j
 public class FdrXmlCommon {
 
-	private static Logger logger;
 
-	public void convertXmlToJson(ExecutionContext context,
-								 String sessionId,
+	public void convertXmlToJson(
 								 byte[] content,
-								 String fileName,
 								 long retryAttempt,
 								 boolean tryToDelete) throws IOException, XMLStreamException, JAXBException {
 
-		logger = context.getLogger();
 
-		logger.log(Level.INFO, () -> messageFormat(sessionId, context.getInvocationId(), null, fileName, "Performing blob processing [retry attempt %d]", retryAttempt));
+		log.info("Performing blob processing [retry attempt {}]", retryAttempt);
 
 		if (GZipUtil.isGzip(content)) {
 
@@ -58,21 +54,26 @@ public class FdrXmlCommon {
 			// extract pathParam for FdR
 			String fdr = nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso();
 			String pspId = nodoInviaFlussoRendicontazioneRequest.getIdentificativoPSP();
+			MDC.put("psp", pspId);
 
 			// delete previous create FDR flow
-			deleteFdrFlow(tryToDelete, sessionId, context.getInvocationId(), fileName, fdr, pspId);
+			deleteFdrFlow(tryToDelete, fdr, pspId);
 
 			// call create FDR flow
-			createFdRFlow(sessionId, context.getInvocationId(), fileName, fdr, pspId, nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento, retryAttempt);
+			createFdRFlow(fdr, pspId, nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento, retryAttempt);
 
 			// call add FDR payments
-			addFdRPayments(sessionId, context.getInvocationId(), fileName, fdr, pspId, ctFlussoRiversamento, retryAttempt);
+			addFdRPayments(fdr, pspId, ctFlussoRiversamento, retryAttempt);
 
 			// call publish FdR flow
-			publishFdRFlow(sessionId, context.getInvocationId(), fileName, fdr, pspId, retryAttempt);
+			publishFdRFlow(fdr, pspId, retryAttempt);
 		}
 		else {
-			throw new IllegalArgumentException(messageFormat(sessionId, context.getInvocationId(), null, fileName, "File error [retry attempt %d]", retryAttempt));
+			String sessionId = MDC.get("sessionId");
+			String invocationId = MDC.get("invocationId");
+			String fileName = MDC.get("fileName");
+			String errMsg = messageFormat(sessionId, invocationId, null, fileName, "File error [retry attempt %d]", retryAttempt);
+			throw new IllegalArgumentException(errMsg);
 		}
 	}
 
@@ -84,25 +85,23 @@ public class FdrXmlCommon {
 		INTERNAL_PUBLISH;
 	}
 
-	private void deleteFdrFlow(boolean tryToDelete, String sessionId, String invocationId, String fileName, String fdr, String pspId) {
+	private void deleteFdrFlow(boolean tryToDelete, String fdr, String pspId) {
 		if (tryToDelete) {
-			String operation = "Delete previous fdr flow";
 			try {
 				FdR3ClientUtil.getPspApi().internalDelete(fdr, pspId);  // clears the entire stream from FDR
 			} catch (ApiException e) {
-				logger.log(Level.WARNING, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s - failed %s", operation, e.getResponseBody()));
+				log.warn("Delete previous fdr flow - failed {}", e.getResponseBody(), e);
 			}
 		}
 	}
 
 	private void createFdRFlow(
-			String sessionId, String invocationId, String fileName,
 			String fdr, String pspId,
 			NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest,
 			CtFlussoRiversamento ctFlussoRiversamento, long retryAttempt) throws IOException {
 
 		String operation = "Create request";
-		logger.log(Level.INFO, () -> messageFormat(sessionId, invocationId, pspId, fileName, operation));
+		log.info(operation);
 		try {
 			FdR3ClientUtil fdR3ClientUtil = new FdR3ClientUtil();
 			// create body for create FDR
@@ -117,18 +116,18 @@ public class FdrXmlCommon {
 					if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_FLOW_ALREADY_CREATED)) {
 						// error != FDR-3002
 						// save on table storage and send alert
-						logger.log(Level.SEVERE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s error [appErrorCode: %s]", operation, Optional.ofNullable(appErrorCode).orElse("null")));
+						log.error("{} error [appErrorCode: {}]", operation, appErrorCode);
 
 						generateAlertAndSaveOnTable(
-								sessionId, invocationId, pspId, fdr, fileName,
+								pspId, fdr,
 								ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_CREATE,
-								Optional.ofNullable(appErrorCode).orElse("null"), String.valueOf(retryAttempt), e
+								appErrorCode, String.valueOf(retryAttempt), e
 						);
 					}
 				}
 				else {
 					generateAlertAndSaveOnTable(
-							sessionId, invocationId, pspId, fdr, fileName,
+							pspId, fdr,
 							ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_CREATE,
 							String.valueOf(e.getCode()), String.valueOf(retryAttempt), e
 					);
@@ -136,7 +135,7 @@ public class FdrXmlCommon {
 			}
 			else {
 				generateAlertAndSaveOnTable(
-						sessionId, invocationId, pspId, fdr, fileName,
+						pspId, fdr,
 						ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_CREATE,
 						String.valueOf(e.getCode()), String.valueOf(retryAttempt), e
 				);
@@ -145,25 +144,23 @@ public class FdrXmlCommon {
 	}
 
 
-	private void addFdRPayments(String sessionId, String invocationId, String fileName,
-								String fdr, String pspId, CtFlussoRiversamento ctFlussoRiversamento, long retryAttempt) throws IOException {
+	private void addFdRPayments(String fdr, String pspId, CtFlussoRiversamento ctFlussoRiversamento, long retryAttempt) throws IOException {
 		List<CtDatiSingoliPagamenti> datiSingoliPagamenti = ctFlussoRiversamento.getDatiSingoliPagamenti();
 		int chunkSize = getPaymentChunkSize();
 		FdR3ClientUtil fdR3ClientUtil = new FdR3ClientUtil();
 		List<AddPaymentRequest> addPaymentRequestList = fdR3ClientUtil.getAddPaymentRequestListChunked(datiSingoliPagamenti, chunkSize);
 		// call addPayment FDR for each partition
 		for (AddPaymentRequest addPaymentRequest : addPaymentRequestList) {
-			sendAddFdrPayments(sessionId, invocationId, fileName, fdr, pspId, addPaymentRequest, retryAttempt, 0);
+			sendAddFdrPayments(fdr, pspId, addPaymentRequest, retryAttempt, 0);
 		}
 	}
 
-	private void sendAddFdrPayments(String sessionId, String invocationId, String fileName,
-									String fdr, String pspId, AddPaymentRequest addPaymentRequest, long retryAttempt, int internalRetry) throws IOException {
+	private void sendAddFdrPayments(String fdr, String pspId, AddPaymentRequest addPaymentRequest, long retryAttempt, int internalRetry) throws IOException {
 		String operation = String.format("Add payments request [retryAttempt: %d][internalRetry: %d]", retryAttempt, internalRetry);
 
 		try {
 			int chunkSize = addPaymentRequest.getPayments().size();
-			logger.log(Level.INFO, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s [chunk size: %d]", operation, chunkSize));
+			log.info("{} [chunk size: {}]", operation, chunkSize);
 			FdR3ClientUtil.getPspApi().internalAddPayment(fdr, pspId, addPaymentRequest);
 		}
 		catch (ApiException e) {
@@ -174,7 +171,7 @@ public class FdrXmlCommon {
 
 					if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_PAYMENT_ALREADY_ADDED)) {
 						generateAlertAndSaveOnTable(
-								sessionId, invocationId, pspId, fdr, fileName,
+								pspId, fdr,
 								ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT,
 								Optional.ofNullable(appErrorCode).orElse("NA"), String.format("%d-%d", retryAttempt, internalRetry), e
 						);
@@ -191,28 +188,28 @@ public class FdrXmlCommon {
 									if (!paymentsFiltered.isEmpty()) {
 										addPaymentRequest.setPayments(paymentsFiltered);
 
-										logger.log(Level.FINE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s try to send chunk without conflicting indexes", operation));
-										sendAddFdrPayments(sessionId, invocationId, fileName, fdr, pspId, addPaymentRequest, retryAttempt, internalRetry + 1);
+										log.debug("{} try to send chunk without conflicting indexes", operation);
+										sendAddFdrPayments(fdr, pspId, addPaymentRequest, retryAttempt, internalRetry + 1);
 									} else {
-										logger.log(Level.FINE, () -> messageFormat(sessionId, invocationId, pspId, fileName, "%s already added. Nothing to internalRetry", operation));
+										log.debug("{} already added. Nothing to internalRetry", operation);
 									}
 								} else {
 									generateAlertAndSaveOnTable(
-											sessionId, invocationId, pspId, fdr, fileName,
+											pspId, fdr,
 											ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT_ERROR_RESPONSE_EMPTY,
 											appErrorCode, String.format("%d-%d. Path not found", retryAttempt, internalRetry), e
 									);
 								}
 							} else {
 								generateAlertAndSaveOnTable(
-										sessionId, invocationId, pspId, fdr, fileName,
+										pspId, fdr,
 										ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT_ERROR_RESPONSE_EMPTY,
 										appErrorCode, String.format("%d-%d", retryAttempt, internalRetry), e
 								);
 							}
 						} else {
 							generateAlertAndSaveOnTable(
-									sessionId, invocationId, pspId, fdr, fileName,
+									pspId, fdr,
 									ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT_RETRY_EXCEEDED,
 									appErrorCode, String.format("%d-%d", retryAttempt, internalRetry), e
 							);
@@ -221,7 +218,7 @@ public class FdrXmlCommon {
 				}
 				else {
 					generateAlertAndSaveOnTable(
-							sessionId, invocationId, pspId, fdr, fileName,
+							pspId, fdr,
 							ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT,
 							String.valueOf(e.getCode()), String.format("%d-%d", retryAttempt, internalRetry), e
 					);
@@ -229,7 +226,7 @@ public class FdrXmlCommon {
 			}
 			else {
 				generateAlertAndSaveOnTable(
-						sessionId, invocationId, pspId, fdr, fileName,
+						pspId, fdr,
 						ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_ADD_PAYMENT,
 						String.valueOf(e.getCode()), String.format("%d-%d", retryAttempt, internalRetry), e
 				);
@@ -237,15 +234,14 @@ public class FdrXmlCommon {
 		}
 	}
 
-	private void publishFdRFlow(String sessionId, String invocationId, String fileName, String fdr, String pspId, long retryAttempt) {
-		String operation = "Publish request";
-		logger.log(Level.INFO, () -> messageFormat(sessionId, invocationId, pspId, fileName, operation));
+	private void publishFdRFlow(String fdr, String pspId, long retryAttempt) {
+		log.info("Publish request");
 		try {
 			FdR3ClientUtil.getPspApi().internalPublish(fdr, pspId);
 		} catch (ApiException e) {
 			if (e.getCode() != HttpStatus.NOT_FOUND.value()) {
 				generateAlertAndSaveOnTable(
-						sessionId, invocationId, pspId, fdr, fileName,
+						pspId, fdr,
 						ErrorEnum.HTTP_ERROR, HttpEventTypeEnum.INTERNAL_PUBLISH,
 						String.valueOf(e.getCode()), String.valueOf(retryAttempt), e
 				);
@@ -253,30 +249,13 @@ public class FdrXmlCommon {
 		}
 	}
 
-	private void generateAlertAndSaveOnTable(String sessionId, String invocationId, String pspId, String fdr, String fileName, ErrorEnum error, HttpEventTypeEnum httpEventTypeEnum, String errorCode, String retryAttempt, ApiException e) {
+	private void generateAlertAndSaveOnTable(String pspId, String fdr, ErrorEnum error, HttpEventTypeEnum httpEventTypeEnum, String errorCode, String retryAttempt, ApiException e) {
 		Instant now = Instant.now();
-		String message = messageFormat(sessionId, invocationId, pspId, fileName, "[FdrXmlToJson][%s][httpEventTypeEnum=%s][errorCode=%s] Http error at %s", error.name(), httpEventTypeEnum.name(), errorCode, now);
-		sendHttpError(now, sessionId, invocationId, fileName, fdr, pspId, error, httpEventTypeEnum, e.getResponseBody(), errorCode, retryAttempt, e);
-		throw new AppException(message, e);
-	}
+		String sessionId = MDC.get("sessionId");
+		String invocationId = MDC.get("invocationId");
+		String fileName = MDC.get("fileName");
 
-	private static void sendHttpError(Instant now, String sessionId, String invocationId, String fileName, String fdr, String pspId, ErrorEnum errorEnum, HttpEventTypeEnum httpEventTypeEnum, String httpErrorResponse, String httpErrorCode, String retryAttempt, Exception e) {
-		_sendToErrorTable(now, sessionId, invocationId, fileName, fdr, pspId, errorEnum, Optional.ofNullable(httpEventTypeEnum), Optional.ofNullable(httpErrorResponse), Optional.of(httpErrorCode), retryAttempt, e);
-	}
-
-	private static void _sendToErrorTable(Instant now, String sessionId, String invocationId, String fileName, String fdr, String pspId, ErrorEnum errorEnum, Optional<HttpEventTypeEnum> httpEventTypeEnum, Optional<String> httpErrorResponse, Optional<String> httpErrorCode, String retryAttempt, Exception e) {
-		Map<String,Object> errorMap = new LinkedHashMap<>();
-		errorMap.put(AppConstant.columnFieldSessionId, sessionId);
-		errorMap.put(AppConstant.columnFieldCreated, now);
-		errorMap.put(AppConstant.columnFieldFileName, fileName);
-		errorMap.put(AppConstant.columnFieldFdr, fdr);
-		errorMap.put(AppConstant.columnFieldPspId, pspId);
-		errorMap.put(AppConstant.columnFieldErrorType, errorEnum.name());
-		httpEventTypeEnum.ifPresent(a -> errorMap.put(AppConstant.columnFieldHttpEventType, a.name()));
-		httpErrorResponse.ifPresent(a -> errorMap.put(AppConstant.columnFieldHttpErrorResponse, a));
-		httpErrorCode.ifPresent(a -> errorMap.put(AppConstant.columnFieldHttpErrorCode, a));
-		errorMap.put(AppConstant.columnFieldStackTrace, ExceptionUtils.getStackTrace(e));
-		errorMap.put(AppConstant.columnFieldRetryAttempt, retryAttempt);
+		Map<String, Object> errorMap = buildTableMap(pspId, fdr, error, httpEventTypeEnum, errorCode, retryAttempt, e, sessionId, now, fileName);
 
 		String partitionKey = LocalDate.ofInstant(now, TimeZone.getDefault().toZoneId()).toString();
 
@@ -284,6 +263,36 @@ public class FdrXmlCommon {
 		TableEntity entity = new TableEntity(partitionKey, sessionId);
 		entity.setProperties(errorMap);
 		tableClient.upsertEntity(entity);
+
+		String message = messageFormat(sessionId, invocationId, pspId, fileName, "[FdrXmlToJson][%s][httpEventTypeEnum=%s][errorCode=%s] Http error at %s", error.name(), httpEventTypeEnum.name(), errorCode, now);
+		throw new AppException(message, e);
+	}
+
+	private static @NotNull Map<String, Object> buildTableMap(
+			String pspId,
+			String fdr,
+			ErrorEnum error,
+			HttpEventTypeEnum httpEventTypeEnum,
+			String errorCode,
+			String retryAttempt,
+			ApiException e,
+			String sessionId,
+			Instant now,
+			String fileName
+	) {
+		Map<String,Object> errorMap = new LinkedHashMap<>();
+		errorMap.put(AppConstant.columnFieldSessionId, sessionId);
+		errorMap.put(AppConstant.columnFieldCreated, now);
+		errorMap.put(AppConstant.columnFieldFileName, fileName);
+		errorMap.put(AppConstant.columnFieldFdr, fdr);
+		errorMap.put(AppConstant.columnFieldPspId, pspId);
+		errorMap.put(AppConstant.columnFieldErrorType, error.name());
+		errorMap.put(AppConstant.columnFieldHttpEventType, httpEventTypeEnum.name());
+		Optional.ofNullable(e.getResponseBody()).ifPresent(a -> errorMap.put(AppConstant.columnFieldHttpErrorResponse, a));
+		Optional.ofNullable(errorCode).ifPresent(a -> errorMap.put(AppConstant.columnFieldHttpErrorCode, a));
+		errorMap.put(AppConstant.columnFieldStackTrace, ExceptionUtils.getStackTrace(e));
+		errorMap.put(AppConstant.columnFieldRetryAttempt, retryAttempt);
+		return errorMap;
 	}
 
 	private Integer getPaymentChunkSize() {
