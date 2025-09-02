@@ -49,9 +49,6 @@ class HttpTriggerFnTest {
 	private HttpRequestMessage<Optional<String>> request;
 
 	@Mock
-	private Logger logger;
-
-	@Mock
 	private TableClient mockTableClient;
 
 	private MockedStatic<FdR3ClientUtil> mockFdR3ClientUtil;
@@ -65,7 +62,6 @@ class HttpTriggerFnTest {
 		// Simulate environment variables
 		TestUtil.setupEnvironmentVariables(environmentVariables);
 
-		when(context.getLogger()).thenReturn(logger);
 		lenient().when(context.getInvocationId()).thenReturn("test-invocation");
 
 		// Mock response builder

@@ -62,9 +62,6 @@ class FdrXmlErrorTest {
 	private HttpRequestMessage<Optional<String>> request;
 
 	@Mock
-	private Logger logger;
-
-	@Mock
 	private TableClient mockTableClient;
 
 	@Mock
@@ -81,7 +78,6 @@ class FdrXmlErrorTest {
 		// Simulate environment variables
 		TestUtil.setupEnvironmentVariables(environmentVariables);
 
-		when(context.getLogger()).thenReturn(logger);
 		lenient().when(context.getInvocationId()).thenReturn("test-invocation");
 
 		// Mock response builder
@@ -178,7 +174,7 @@ class FdrXmlErrorTest {
 	@SneakyThrows
 	void testRun_withException_2() {
 		when(request.getQueryParameters()).thenReturn(Map.of("partitionKey", "testPartition", "rowKey", "testRow"));
-		doThrow(new IOException("Simulated Exception")).when(fdrXmlCommon).convertXmlToJson(any(), anyString(), any(), anyString(), anyLong(), anyBoolean());
+		doThrow(new IOException("Simulated Exception")).when(fdrXmlCommon).convertXmlToJson(any(), anyLong(), anyBoolean());
 
 		HttpResponseMessage response = fdrXmlError.run(request, context);
 

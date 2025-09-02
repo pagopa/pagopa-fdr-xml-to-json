@@ -47,16 +47,12 @@ class QueueTriggerFnTest {
 
 	@SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
-	private static final Logger logger = Logger.getLogger("QueueTriggerFn-test-logger");
-
 	@BeforeEach
 	void setUp() {
 		// Simulate environment variables
 		TestUtil.setupEnvironmentVariables(environmentVariables);
 
 		queueTriggerFn = new QueueTriggerFn(fdrXmlCommon);
-
-		when(context.getLogger()).thenReturn(logger);
 
 		// Mock static methods of StorageAccountUtil
 		mockStorageAccountUtil = mockStatic(StorageAccountUtil.class);
@@ -129,7 +125,7 @@ class QueueTriggerFnTest {
 						.build());
 
 		doThrow(new IOException("Simulated Exception")).when(fdrXmlCommon)
-				.convertXmlToJson(any(), anyString(), any(), anyString(), anyLong(), anyBoolean());
+				.convertXmlToJson(any(), anyLong(), anyBoolean());
 
 		// execute logic
 		Exception thrownException = assertThrows(Exception.class, () ->

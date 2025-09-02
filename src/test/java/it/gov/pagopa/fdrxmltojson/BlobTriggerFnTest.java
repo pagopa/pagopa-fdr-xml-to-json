@@ -51,13 +51,11 @@ class BlobTriggerFnTest {
 	private MockedStatic<StorageAccountUtil> mockStorageAccountUtil;
 	private MockedStatic<ErrorResponse> mockErrorResponseUtil;
 
-	private static final Logger logger = Logger.getLogger("BlobTriggerFn-test-logger");
 
 	@BeforeEach
 	void setUp() {
 		TestUtil.setupEnvironmentVariables(environmentVariables);
 
-		when(context.getLogger()).thenReturn(logger);
 		lenient().when(context.getInvocationId()).thenReturn("test-invocation");
 
 		// Mock static methods of StorageAccountUtil
