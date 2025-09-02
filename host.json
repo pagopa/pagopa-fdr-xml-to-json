@@ -24,10 +24,6 @@
     }
   },
   "logging": {
-    "console": {
-      "isEnabled": true,
-      "format": "json"
-    },
     "logLevel": {
       "default": "Error",
       "Function.BlobEventProcessor": "Information",
