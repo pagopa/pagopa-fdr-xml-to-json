@@ -14,6 +14,7 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
+import it.gov.pagopa.fdrxmltojson.client.AppInsightTelemetryClient;
 import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.model.QueueMessage;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
@@ -26,13 +27,16 @@ import org.slf4j.MDC;
 public class QueueTriggerFn {
 
   private final FdrXmlCommon fdrXmlCommon;
+  private final AppInsightTelemetryClient aiTelemetryClient;
 
   public QueueTriggerFn() {
-    fdrXmlCommon = new FdrXmlCommon();
+    this.aiTelemetryClient = new AppInsightTelemetryClient();
+    this.fdrXmlCommon = new FdrXmlCommon();
   }
 
-  public QueueTriggerFn(FdrXmlCommon fdrXmlCommon) {
+  public QueueTriggerFn(FdrXmlCommon fdrXmlCommon, AppInsightTelemetryClient aiTelemetryClient) {
     this.fdrXmlCommon = fdrXmlCommon;
+    this.aiTelemetryClient = aiTelemetryClient;
   }
 
   @FunctionName("QueueEventProcessor")
@@ -121,6 +125,7 @@ public class QueueTriggerFn {
                 blobData.getFileName(),
                 "[ALERT][FdrXmlToJson][LAST_RETRY] Performed last retry for blob processing");
         log.error(formattedMessage, e);
+        this.aiTelemetryClient.createCustomEventForAlert(formattedMessage, e);
       }
 
       throw new Exception(formattedMessage, e);

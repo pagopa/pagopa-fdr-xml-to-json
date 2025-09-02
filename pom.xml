@@ -54,6 +54,11 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-data-tables</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.microsoft.azure</groupId>
+            <artifactId>applicationinsights-core</artifactId>
+            <version>2.6.4</version>
+        </dependency>
         <!-- End Azure -->
 
         <!-- Test -->

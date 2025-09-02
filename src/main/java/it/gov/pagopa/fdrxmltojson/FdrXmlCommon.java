@@ -129,7 +129,7 @@ public class FdrXmlCommon {
             // save on table storage and send alert
             log.error("{} error [appErrorCode: {}]", operation, appErrorCode);
 
-            generateAlertAndSaveOnTable(
+            saveOnTableAndThrow(
                 pspId,
                 fdr,
                 ErrorEnum.HTTP_ERROR,
@@ -139,7 +139,7 @@ public class FdrXmlCommon {
                 e);
           }
         } else {
-          generateAlertAndSaveOnTable(
+          saveOnTableAndThrow(
               pspId,
               fdr,
               ErrorEnum.HTTP_ERROR,
@@ -149,7 +149,7 @@ public class FdrXmlCommon {
               e);
         }
       } else {
-        generateAlertAndSaveOnTable(
+        saveOnTableAndThrow(
             pspId,
             fdr,
             ErrorEnum.HTTP_ERROR,
@@ -199,7 +199,7 @@ public class FdrXmlCommon {
           String appErrorCode = errorBody.getAppErrorCode();
 
           if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_PAYMENT_ALREADY_ADDED)) {
-            generateAlertAndSaveOnTable(
+            saveOnTableAndThrow(
                 pspId,
                 fdr,
                 ErrorEnum.HTTP_ERROR,
@@ -232,7 +232,7 @@ public class FdrXmlCommon {
                     log.debug("{} already added. Nothing to internalRetry", operation);
                   }
                 } else {
-                  generateAlertAndSaveOnTable(
+                  saveOnTableAndThrow(
                       pspId,
                       fdr,
                       ErrorEnum.HTTP_ERROR,
@@ -242,7 +242,7 @@ public class FdrXmlCommon {
                       e);
                 }
               } else {
-                generateAlertAndSaveOnTable(
+                saveOnTableAndThrow(
                     pspId,
                     fdr,
                     ErrorEnum.HTTP_ERROR,
@@ -252,7 +252,7 @@ public class FdrXmlCommon {
                     e);
               }
             } else {
-              generateAlertAndSaveOnTable(
+              saveOnTableAndThrow(
                   pspId,
                   fdr,
                   ErrorEnum.HTTP_ERROR,
@@ -263,7 +263,7 @@ public class FdrXmlCommon {
             }
           }
         } else {
-          generateAlertAndSaveOnTable(
+          saveOnTableAndThrow(
               pspId,
               fdr,
               ErrorEnum.HTTP_ERROR,
@@ -273,7 +273,7 @@ public class FdrXmlCommon {
               e);
         }
       } else {
-        generateAlertAndSaveOnTable(
+        saveOnTableAndThrow(
             pspId,
             fdr,
             ErrorEnum.HTTP_ERROR,
@@ -291,7 +291,7 @@ public class FdrXmlCommon {
       FdR3ClientUtil.getPspApi().internalPublish(fdr, pspId);
     } catch (ApiException e) {
       if (e.getCode() != HttpStatus.NOT_FOUND.value()) {
-        generateAlertAndSaveOnTable(
+        saveOnTableAndThrow(
             pspId,
             fdr,
             ErrorEnum.HTTP_ERROR,
@@ -303,7 +303,7 @@ public class FdrXmlCommon {
     }
   }
 
-  private void generateAlertAndSaveOnTable(
+  private void saveOnTableAndThrow(
       String pspId,
       String fdr,
       ErrorEnum error,
