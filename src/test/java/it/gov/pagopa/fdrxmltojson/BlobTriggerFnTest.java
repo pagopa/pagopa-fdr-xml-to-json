@@ -9,6 +9,7 @@ import it.gov.pagopa.fdrxmltojson.util.AppException;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
 import it.gov.pagopa.fdrxmltojson.util.TestUtil;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.AfterEach;
@@ -93,16 +94,15 @@ class BlobTriggerFnTest {
     mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
+    Map<String, String> metadata = TestUtil.getMetadata();
+    String uuid = UUID.randomUUID().toString();
 
     when(pspApi.internalCreate(anyString(), anyString(), any()))
         .thenThrow(new ApiException("Test Exception"));
 
     // execute logic
     Assertions.assertThrows(
-        AppException.class,
-        () ->
-            blobTriggerFn.run(
-                content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+        AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
   }
 
   @Test
@@ -139,6 +139,8 @@ class BlobTriggerFnTest {
     mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
+    Map<String, String> metadata = TestUtil.getMetadata();
+    String uuid = UUID.randomUUID().toString();
 
     String responseBody =
         "{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"errors\":[{\"path\":\"<detail.path.if-exist>\",\"message\":\"<detail.message>\"}]}";
@@ -147,10 +149,7 @@ class BlobTriggerFnTest {
 
     // execute logic
     Assertions.assertThrows(
-        AppException.class,
-        () ->
-            blobTriggerFn.run(
-                content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+        AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
   }
 
   @Test
@@ -162,6 +161,8 @@ class BlobTriggerFnTest {
     mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
+    Map<String, String> metadata = TestUtil.getMetadata();
+    String uuid = UUID.randomUUID().toString();
 
     String responseBody =
         "{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"appErrorCode\":\"FDR-XXXX\",\"errors\":[{\"path\":\"<detail.path.if-exist>\",\"message\":\"<detail.message>\"}]}";
@@ -170,10 +171,7 @@ class BlobTriggerFnTest {
 
     // execute logic
     Assertions.assertThrows(
-        AppException.class,
-        () ->
-            blobTriggerFn.run(
-                content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+        AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
   }
 
   @Test
@@ -185,6 +183,8 @@ class BlobTriggerFnTest {
     mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
+    Map<String, String> metadata = TestUtil.getMetadata();
+    String uuid = UUID.randomUUID().toString();
 
     ApiException apiException = mock(ApiException.class);
     Whitebox.setInternalState(apiException, "code", 404);
@@ -193,10 +193,7 @@ class BlobTriggerFnTest {
 
     // execute logic
     Assertions.assertThrows(
-        AppException.class,
-        () ->
-            blobTriggerFn.run(
-                content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+        AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
   }
 
   @Test
@@ -208,6 +205,8 @@ class BlobTriggerFnTest {
     mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
+    Map<String, String> metadata = TestUtil.getMetadata();
+    String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
@@ -218,10 +217,7 @@ class BlobTriggerFnTest {
 
     // execute logic
     Assertions.assertThrows(
-        AppException.class,
-        () ->
-            blobTriggerFn.run(
-                content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+        AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
   }
 
   @Test
@@ -233,6 +229,8 @@ class BlobTriggerFnTest {
     mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
+    Map<String, String> metadata = TestUtil.getMetadata();
+    String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
@@ -247,10 +245,7 @@ class BlobTriggerFnTest {
 
     // execute logic
     Assertions.assertThrows(
-        AppException.class,
-        () ->
-            blobTriggerFn.run(
-                content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+        AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
   }
 
   @Test
@@ -262,6 +257,8 @@ class BlobTriggerFnTest {
     mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
+    Map<String, String> metadata = TestUtil.getMetadata();
+    String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
@@ -274,10 +271,7 @@ class BlobTriggerFnTest {
 
     // execute logic
     Assertions.assertThrows(
-        AppException.class,
-        () ->
-            blobTriggerFn.run(
-                content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+        AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
   }
 
   @Test
@@ -319,6 +313,8 @@ class BlobTriggerFnTest {
     mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
+    Map<String, String> metadata = TestUtil.getMetadata();
+    String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
@@ -333,10 +329,7 @@ class BlobTriggerFnTest {
 
     // execute logic
     Assertions.assertThrows(
-        AppException.class,
-        () ->
-            blobTriggerFn.run(
-                content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+        AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
   }
 
   @Test
@@ -349,6 +342,8 @@ class BlobTriggerFnTest {
     mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
+    Map<String, String> metadata = TestUtil.getMetadata();
+    String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
@@ -363,10 +358,7 @@ class BlobTriggerFnTest {
 
     // execute logic
     Assertions.assertThrows(
-        AppException.class,
-        () ->
-            blobTriggerFn.run(
-                content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+        AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
   }
 
   @Test
@@ -406,6 +398,8 @@ class BlobTriggerFnTest {
     mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
+    Map<String, String> metadata = TestUtil.getMetadata();
+    String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
@@ -419,9 +413,6 @@ class BlobTriggerFnTest {
 
     // execute logic
     Assertions.assertThrows(
-        AppException.class,
-        () ->
-            blobTriggerFn.run(
-                content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+        AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
   }
 }
