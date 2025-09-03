@@ -25,7 +25,6 @@
   },
   "logging": {
     "logLevel": {
-      "default": "Error",
       "Function.BlobEventProcessor": "Information",
       "Function.QueueEventProcessor": "Information",
       "Function.XmlErrorRetry": "Information",
