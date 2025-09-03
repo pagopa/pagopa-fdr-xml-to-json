@@ -5,7 +5,7 @@
 
     <groupId>it.gov.pagopa</groupId>
     <artifactId>fdrxmltojson</artifactId>
-    <version>1.0.9</version>
+    <version>1.0.9-1-PAGOPA-2800-fd-r-sampling-dei-log-su-ai-e-elk</version>
     <packaging>jar</packaging>
 
     <name>FDR XML to JSON Fn</name>
