@@ -29,7 +29,8 @@
       "Function.QueueEventProcessor": "Information",
       "Function.XmlErrorRetry": "Information",
       "Function.HttpTriggerFn": "Information",
-      "Function.ErrorRecoveryFn": "Information"
+      "Function.ErrorRecoveryFn": "Information",
+      "Function.Info": "Error"
     },
     "applicationInsights": {
       "samplingSettings": {
