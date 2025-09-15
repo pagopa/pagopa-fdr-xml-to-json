@@ -1,5 +1,8 @@
 package it.gov.pagopa.fdrxmltojson;
 
+import static it.gov.pagopa.fdrxmltojson.util.FormatterUtil.messageFormat;
+import static java.time.temporal.ChronoUnit.SECONDS;
+
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.core.util.Context;
 import com.azure.data.tables.TableClient;
@@ -11,84 +14,125 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
+import it.gov.pagopa.fdrxmltojson.client.AppInsightTelemetryClient;
 import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.model.QueueMessage;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
-
 import java.time.Duration;
 import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 
-import static it.gov.pagopa.fdrxmltojson.util.FormatterUtil.messageFormat;
-import static java.time.temporal.ChronoUnit.SECONDS;
-
+@Slf4j
 public class QueueTriggerFn {
 
-    private static Logger logger;
+  private final FdrXmlCommon fdrXmlCommon;
+  private final AppInsightTelemetryClient aiTelemetryClient;
 
-    private FdrXmlCommon fdrXmlCommon;
+  public QueueTriggerFn() {
+    this.aiTelemetryClient = new AppInsightTelemetryClient();
+    this.fdrXmlCommon = new FdrXmlCommon();
+  }
 
-    public QueueTriggerFn() {
-        fdrXmlCommon = new FdrXmlCommon();
+  public QueueTriggerFn(FdrXmlCommon fdrXmlCommon, AppInsightTelemetryClient aiTelemetryClient) {
+    this.fdrXmlCommon = fdrXmlCommon;
+    this.aiTelemetryClient = aiTelemetryClient;
+  }
+
+  @FunctionName("QueueEventProcessor")
+  public void run(
+      @QueueTrigger(
+              name = "queueTrigger",
+              connection = "STORAGE_ACCOUNT_CONN_STRING",
+              queueName = "webjobs-blobtrigger-poison")
+          String message,
+      @BindingName("DequeueCount") long dequeueCount,
+      final ExecutionContext context)
+      throws Exception {
+
+    String operation = "Queue Trigger ";
+    ObjectMapper objectMapper = new ObjectMapper();
+    objectMapper.registerModule(new JavaTimeModule());
+
+    try {
+      MDC.put("invocationId", context.getInvocationId());
+      log.info("Performing queue processing [retry attempt {}]", dequeueCount);
+
+      QueueMessage queueMessage = objectMapper.readValue(message, QueueMessage.class);
+
+      if (queueMessage != null
+          && !queueMessage.getContainerName().isBlank()
+          && queueMessage
+              .getContainerName()
+              .equals(StorageAccountUtil.getFdr1FlowBlobContainerName())
+          && !queueMessage.getFileName().isBlank()) {
+        BlobData blobData = StorageAccountUtil.getBlobContent(queueMessage.getFileName());
+        String sessionId =
+            Optional.ofNullable(blobData.getMetadata().get("sessionId")).orElse("NA");
+
+        MDC.put("sessionId", sessionId);
+        MDC.put("fileName", blobData.getFileName());
+        processEntity(dequeueCount, context, blobData, sessionId, operation);
+      }
+    } finally {
+      MDC.clear();
     }
+  }
 
-    public QueueTriggerFn(FdrXmlCommon fdrXmlCommon) {
-        this.fdrXmlCommon = fdrXmlCommon;
-    }
+  private void processEntity(
+      long dequeueCount,
+      ExecutionContext context,
+      BlobData blobData,
+      String sessionId,
+      String operation)
+      throws Exception {
+    try {
+      fdrXmlCommon.convertXmlToJson(blobData.getContent(), dequeueCount, true);
 
-    @FunctionName("QueueEventProcessor")
-    public void run(
-            @QueueTrigger(name = "queueTrigger",
-                    connection = "STORAGE_ACCOUNT_CONN_STRING",
-                    queueName = "webjobs-blobtrigger-poison") String message,
-            @BindingName("DequeueCount") long dequeueCount,
-            final ExecutionContext context) throws Exception {
-
-        String operation = "Queue Trigger ";
-        logger = context.getLogger();
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), null, "NA", "Performing queue processing [retry attempt %d]", dequeueCount));
-
-        QueueMessage queueMessage = objectMapper.readValue(message, QueueMessage.class);
-
-        if (queueMessage != null &&
-                !queueMessage.getContainerName().isBlank() && queueMessage.getContainerName().equals(StorageAccountUtil.getFdr1FlowBlobContainerName()) &&
-                !queueMessage.getFileName().isBlank()
-        ) {
-            BlobData blobData = StorageAccountUtil.getBlobContent(queueMessage.getFileName());
-            String sessionId = Optional.ofNullable(blobData.getMetadata().get("sessionId")).orElse("NA");
-
-            try {
-                fdrXmlCommon.convertXmlToJson(context, sessionId, blobData.getContent(), blobData.getFileName(), dequeueCount, true);
-
-                // if convertion is executed properly then removes the entry from fdr1conversion error table
-                TableClient tableClient = StorageAccountUtil.getTableClient();
-                ListEntitiesOptions listEntitiesOptions = new ListEntitiesOptions()
-                        .setFilter(String.format("RowKey eq '%s'", sessionId));
-                PagedIterable<TableEntity> entries = tableClient.listEntities(listEntitiesOptions, Duration.of(3, SECONDS), new Context("invocationId", context.getInvocationId()));
-                if (entries != null) {
-                    for (TableEntity entry : entries) {
-                        tableClient.deleteEntity(entry);
-                    }
-                }
-
-            } catch (Exception e) {
-                String formattedMessage = messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "%s error [retry attempt: %s]", operation, dequeueCount);
-                logger.log(Level.SEVERE, formattedMessage, e);
-
-                if (dequeueCount ==  getMaxRetryCount() - 1) {
-                    formattedMessage = messageFormat(sessionId, context.getInvocationId(), "NA", blobData.getFileName(), "[ALERT][FdrXmlToJson][LAST_RETRY] Performed last retry for blob processing");
-                    logger.log(Level.SEVERE, formattedMessage, e);
-                }
-
-                throw new Exception(formattedMessage, e);
-            }
+      // if convertion is executed properly then removes the entry from fdr1conversion error table
+      TableClient tableClient = StorageAccountUtil.getTableClient();
+      ListEntitiesOptions listEntitiesOptions =
+          new ListEntitiesOptions().setFilter(String.format("RowKey eq '%s'", sessionId));
+      PagedIterable<TableEntity> entries =
+          tableClient.listEntities(
+              listEntitiesOptions,
+              Duration.of(3, SECONDS),
+              new Context("invocationId", context.getInvocationId()));
+      if (entries != null) {
+        for (TableEntity entry : entries) {
+          tableClient.deleteEntity(entry);
         }
-    }
+      }
 
-    private Long getMaxRetryCount() {
-        return Long.parseLong(System.getenv("MAX_RETRY_COUNT")); // it should be maxDequeueCount + 1
+    } catch (Exception e) {
+      String formattedMessage =
+          messageFormat(
+              sessionId,
+              context.getInvocationId(),
+              "NA",
+              blobData.getFileName(),
+              "%s error [retry attempt: %s]",
+              operation,
+              dequeueCount);
+      log.error(formattedMessage, e);
+
+      if (dequeueCount == getMaxRetryCount() - 1) {
+        formattedMessage =
+            messageFormat(
+                sessionId,
+                context.getInvocationId(),
+                "NA",
+                blobData.getFileName(),
+                "[ALERT][FdrXmlToJson][LAST_RETRY] Performed last retry for blob processing");
+        log.error(formattedMessage, e);
+        this.aiTelemetryClient.createCustomEventForAlert(formattedMessage, e);
+      }
+
+      throw new Exception(formattedMessage, e);
     }
+  }
+
+  private Long getMaxRetryCount() {
+    return Long.parseLong(System.getenv("MAX_RETRY_COUNT")); // it should be maxDequeueCount + 1
+  }
 }

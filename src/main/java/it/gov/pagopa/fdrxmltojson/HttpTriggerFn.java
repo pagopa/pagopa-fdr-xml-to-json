@@ -8,76 +8,65 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdrxmltojson.model.AppConstant;
 import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
-import org.apache.commons.lang3.exception.ExceptionUtils;
-
 import java.security.InvalidParameterException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.slf4j.MDC;
 
-import static it.gov.pagopa.fdrxmltojson.util.FormatterUtil.messageFormat;
-
-
-/**
- * Azure Functions with Azure Http trigger.
- */
+/** Azure Functions with Azure Http trigger. */
+@Slf4j
 public class HttpTriggerFn {
 
-	private String operation = "HttpTriggerFn ";
+  @FunctionName("HttpTriggerFn")
+  public HttpResponseMessage run(
+      @HttpTrigger(
+              name = "HttpTriggerFn",
+              methods = {HttpMethod.GET},
+              route = "recover/fdr/{filename}",
+              authLevel = AuthorizationLevel.ANONYMOUS)
+          HttpRequestMessage<Optional<String>> request,
+      @BindingName("filename") String filename,
+      final ExecutionContext context) {
 
-	@FunctionName("HttpTriggerFn")
-	public HttpResponseMessage run (
-			@HttpTrigger(name = "HttpTriggerFn",
-			methods = {HttpMethod.GET},
-			route = "recover/fdr/{filename}",
-			authLevel = AuthorizationLevel.ANONYMOUS) HttpRequestMessage<Optional<String>> request,
-			@BindingName("filename") String filename,
-			final ExecutionContext context) {
+    String triggeredAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+    String operation = String.format("HttpTriggerFn triggered at %s", triggeredAt);
 
-		Logger logger = context.getLogger();
-		String triggeredAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-		operation = String.format("%s triggered at %s",  operation, triggeredAt);
+    try {
+      MDC.put("invocationId", context.getInvocationId());
+      log.info(operation);
 
-		logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", operation));
+      if (filename.isEmpty()) {
+        throw new InvalidParameterException("Filename not found");
+      }
 
-		try {
-			if (filename.isEmpty()) {
-				throw new InvalidParameterException("Filename not found");
-			}
+      processEntity(filename);
 
-			HttpResponseMessage response;
+      log.info("{} executed", operation);
+      return request.createResponseBuilder(HttpStatus.OK).body(HttpStatus.OK.toString()).build();
 
-			response = processEntity(context, filename);
+    } catch (Exception e) {
+      log.error("{} error", operation, e);
 
-			if (response == null) {
-				logger.log(Level.INFO, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s executed", operation));
-				response = request.createResponseBuilder(HttpStatus.OK).body(HttpStatus.OK.toString()).build();
-			}
+      return request
+          .createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(HttpStatus.INTERNAL_SERVER_ERROR + ": " + ExceptionUtils.getStackTrace(e))
+          .build();
+    } finally {
+      MDC.clear();
+    }
+  }
 
-			return response;
+  private void processEntity(String filename) throws Exception {
+    BlobData blobData = StorageAccountUtil.getBlobContent(filename);
+    byte[] content = blobData.getContent();
+    String sessionId = blobData.getMetadata().get(AppConstant.columnFieldSessionId);
 
-		} catch (Exception e) {
-			logger.log(Level.SEVERE, () -> messageFormat("NA", context.getInvocationId(), "NA", "NA", "%s error: %s", operation, e.getMessage()));
-
-			return request
-					.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body(HttpStatus.INTERNAL_SERVER_ERROR + ": " + ExceptionUtils.getStackTrace(e))
-					.build();
-		}
-	}
-
-	private HttpResponseMessage processEntity(ExecutionContext context, String filename) throws Exception {
-
-		BlobData blobData = StorageAccountUtil.getBlobContent(filename);
-		byte[] content = blobData.getContent();
-		String sessionId = blobData.getMetadata().get(AppConstant.columnFieldSessionId);
-
-		// retryAttempt to 0 because it is an external call
-		new FdrXmlCommon().convertXmlToJson(context, sessionId, content, filename, 0, true);
-
-		return null;
-	}
-
+    MDC.put("fileName", filename);
+    MDC.put("sessionId", sessionId);
+    // retryAttempt to 0 because it is an external call
+    new FdrXmlCommon().convertXmlToJson(content, 0, true);
+  }
 }

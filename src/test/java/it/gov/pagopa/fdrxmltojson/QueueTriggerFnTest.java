@@ -1,12 +1,19 @@
 package it.gov.pagopa.fdrxmltojson;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
+
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.TableEntity;
 import com.microsoft.azure.functions.ExecutionContext;
+import it.gov.pagopa.fdrxmltojson.client.AppInsightTelemetryClient;
 import it.gov.pagopa.fdrxmltojson.model.BlobData;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
 import it.gov.pagopa.fdrxmltojson.util.TestUtil;
+import java.io.IOException;
+import java.util.*;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -20,122 +27,126 @@ import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 
-import java.io.IOException;
-import java.util.*;
-import java.util.logging.Logger;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
-
 @ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
 class QueueTriggerFnTest {
 
-	@Mock
-	ExecutionContext context;
+  @Mock ExecutionContext context;
 
-	@Mock
-	private TableClient mockTableClient;
+  @Mock private TableClient mockTableClient;
 
-	@Mock
-	private FdrXmlCommon fdrXmlCommon;
+  @Mock private FdrXmlCommon fdrXmlCommon;
 
-	@InjectMocks
-	QueueTriggerFn queueTriggerFn;
+  @Mock private AppInsightTelemetryClient aiTelemetryClient;
 
-	private MockedStatic<StorageAccountUtil> mockStorageAccountUtil;
+  @InjectMocks QueueTriggerFn queueTriggerFn;
 
-	@SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
+  private MockedStatic<StorageAccountUtil> mockStorageAccountUtil;
 
-	private static final Logger logger = Logger.getLogger("QueueTriggerFn-test-logger");
+  @SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
-	@BeforeEach
-	void setUp() {
-		// Simulate environment variables
-		TestUtil.setupEnvironmentVariables(environmentVariables);
+  @BeforeEach
+  void setUp() {
+    // Simulate environment variables
+    TestUtil.setupEnvironmentVariables(environmentVariables);
 
-		queueTriggerFn = new QueueTriggerFn(fdrXmlCommon);
+    queueTriggerFn = new QueueTriggerFn(fdrXmlCommon, aiTelemetryClient);
 
-		when(context.getLogger()).thenReturn(logger);
+    // Mock static methods of StorageAccountUtil
+    mockStorageAccountUtil = mockStatic(StorageAccountUtil.class);
+    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
+    mockStorageAccountUtil
+        .when(StorageAccountUtil::getFdr1FlowBlobContainerName)
+        .thenReturn("fdr1-flows");
+  }
 
-		// Mock static methods of StorageAccountUtil
-		mockStorageAccountUtil = mockStatic(StorageAccountUtil.class);
-		mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-		mockStorageAccountUtil.when(StorageAccountUtil::getFdr1FlowBlobContainerName).thenReturn("fdr1-flows");
-	}
+  @AfterEach
+  void tearDown() {
+    if (mockStorageAccountUtil != null) {
+      mockStorageAccountUtil.close();
+    }
+  }
 
-	@AfterEach
-	void tearDown() {
-		if (mockStorageAccountUtil != null) {
-			mockStorageAccountUtil.close();
-		}
-	}
+  @Test
+  @SneakyThrows
+  void runOk() {
+    // generating input
+    String message =
+        "{\"Type\":\"BlobTrigger\",\"FunctionId\":\"Host.Functions.BlobFdrXmlToJsonEventProcessor\",\"BlobType\":\"BlockBlob\",\"ContainerName\":\"fdr1-flows\",\"BlobName\":\"2025-02-2088888888888-235633854_27f28ae5-02ec-4845-90e8-6e1950b7a400.xml.zip\",\"ETag\":\"\\\"0x8DD51CD85C7A615\\\"\"}";
+    long dequeueCount = 1;
+    byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+    mockStorageAccountUtil
+        .when(() -> StorageAccountUtil.getBlobContent(anyString()))
+        .thenAnswer(
+            (Answer<BlobData>)
+                invocation ->
+                    BlobData.builder()
+                        .fileName(invocation.getArgument(0))
+                        .metadata(Map.of("sessionId", "fake-sessionId"))
+                        .content(content)
+                        .build());
 
-	@Test
-	@SneakyThrows
-	void runOk() {
-		// generating input
-		String message = "{\"Type\":\"BlobTrigger\",\"FunctionId\":\"Host.Functions.BlobFdrXmlToJsonEventProcessor\",\"BlobType\":\"BlockBlob\",\"ContainerName\":\"fdr1-flows\",\"BlobName\":\"2025-02-2088888888888-235633854_27f28ae5-02ec-4845-90e8-6e1950b7a400.xml.zip\",\"ETag\":\"\\\"0x8DD51CD85C7A615\\\"\"}";
-		long dequeueCount = 1;
-		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-		mockStorageAccountUtil.when(() -> StorageAccountUtil.getBlobContent(anyString()))
-				.thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()
-						.fileName(invocation.getArgument(0))
-						.metadata(Map.of("sessionId", "fake-sessionId"))
-						.content(content)
-						.build());
+    Assertions.assertDoesNotThrow(() -> queueTriggerFn.run(message, dequeueCount, context));
+  }
 
-		Assertions.assertDoesNotThrow(() -> queueTriggerFn.run(message, dequeueCount, context));
-	}
+  @Test
+  @SneakyThrows
+  void runOk_delete_entities() {
+    // generating input
+    String message =
+        "{\"Type\":\"BlobTrigger\",\"FunctionId\":\"Host.Functions.BlobFdrXmlToJsonEventProcessor\",\"BlobType\":\"BlockBlob\",\"ContainerName\":\"fdr1-flows\",\"BlobName\":\"2025-02-2088888888888-235633854_27f28ae5-02ec-4845-90e8-6e1950b7a400.xml.zip\",\"ETag\":\"\\\"0x8DD51CD85C7A615\\\"\"}";
+    long dequeueCount = 1;
+    byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+    mockStorageAccountUtil
+        .when(() -> StorageAccountUtil.getBlobContent(anyString()))
+        .thenAnswer(
+            (Answer<BlobData>)
+                invocation ->
+                    BlobData.builder()
+                        .fileName(invocation.getArgument(0))
+                        .metadata(Map.of("sessionId", "fake-sessionId"))
+                        .content(content)
+                        .build());
 
-	@Test
-	@SneakyThrows
-	void runOk_delete_entities() {
-		// generating input
-		String message = "{\"Type\":\"BlobTrigger\",\"FunctionId\":\"Host.Functions.BlobFdrXmlToJsonEventProcessor\",\"BlobType\":\"BlockBlob\",\"ContainerName\":\"fdr1-flows\",\"BlobName\":\"2025-02-2088888888888-235633854_27f28ae5-02ec-4845-90e8-6e1950b7a400.xml.zip\",\"ETag\":\"\\\"0x8DD51CD85C7A615\\\"\"}";
-		long dequeueCount = 1;
-		byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-		mockStorageAccountUtil.when(() -> StorageAccountUtil.getBlobContent(anyString()))
-				.thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()
-						.fileName(invocation.getArgument(0))
-						.metadata(Map.of("sessionId", "fake-sessionId"))
-						.content(content)
-						.build());
+    TableEntity mockEntity = mock(TableEntity.class);
+    List<TableEntity> mockEntityList = Collections.singletonList(mockEntity);
+    Iterator<TableEntity> mockIterator = mockEntityList.iterator();
 
-		TableEntity mockEntity = mock(TableEntity.class);
-		List<TableEntity> mockEntityList = Collections.singletonList(mockEntity);
-		Iterator<TableEntity> mockIterator = mockEntityList.iterator();
+    PagedIterable<TableEntity> mockPagedTableEntities = mock(PagedIterable.class);
+    when(mockPagedTableEntities.iterator()).thenReturn(mockIterator);
+    mockStorageAccountUtil
+        .when(() -> StorageAccountUtil.getTableClient().listEntities(any(), any(), any()))
+        .thenAnswer(invocation -> mockPagedTableEntities);
 
-		PagedIterable<TableEntity> mockPagedTableEntities = mock(PagedIterable.class);
-		when(mockPagedTableEntities.iterator()).thenReturn(mockIterator);
-		mockStorageAccountUtil.when(() -> StorageAccountUtil.getTableClient().listEntities(any(), any(), any()))
-						.thenAnswer(invocation -> mockPagedTableEntities);
+    Assertions.assertDoesNotThrow(() -> queueTriggerFn.run(message, dequeueCount, context));
+  }
 
-		Assertions.assertDoesNotThrow(() -> queueTriggerFn.run(message, dequeueCount, context));
-	}
+  @Test
+  @SneakyThrows
+  void runKo() {
+    // generating input
+    String message =
+        "{\"Type\":\"BlobTrigger\",\"FunctionId\":\"Host.Functions.BlobFdrXmlToJsonEventProcessor\",\"BlobType\":\"BlockBlob\",\"ContainerName\":\"fdr1-flows\",\"BlobName\":\"2025-02-2088888888888-235633854_27f28ae5-02ec-4845-90e8-6e1950b7a400.xml.zip\",\"ETag\":\"\\\"0x8DD51CD85C7A615\\\"\"}";
+    long dequeueCount = 4;
 
-	@Test
-	@SneakyThrows
-	void runKo() {
-		// generating input
-		String message = "{\"Type\":\"BlobTrigger\",\"FunctionId\":\"Host.Functions.BlobFdrXmlToJsonEventProcessor\",\"BlobType\":\"BlockBlob\",\"ContainerName\":\"fdr1-flows\",\"BlobName\":\"2025-02-2088888888888-235633854_27f28ae5-02ec-4845-90e8-6e1950b7a400.xml.zip\",\"ETag\":\"\\\"0x8DD51CD85C7A615\\\"\"}";
-		long dequeueCount = 4;
+    mockStorageAccountUtil
+        .when(() -> StorageAccountUtil.getBlobContent(anyString()))
+        .thenAnswer(
+            (Answer<BlobData>)
+                invocation ->
+                    BlobData.builder()
+                        .fileName(invocation.getArgument(0))
+                        .metadata(Map.of("sessionId", "fake-sessionId"))
+                        .content(new byte[] {1, 2, 3})
+                        .build());
 
-		mockStorageAccountUtil.when(() -> StorageAccountUtil.getBlobContent(anyString()))
-				.thenAnswer((Answer<BlobData>) invocation -> BlobData.builder()
-						.fileName(invocation.getArgument(0))
-						.metadata(Map.of("sessionId", "fake-sessionId"))
-						.content(new byte[]{1, 2, 3})
-						.build());
+    doThrow(new IOException("Simulated Exception"))
+        .when(fdrXmlCommon)
+        .convertXmlToJson(any(), anyLong(), anyBoolean());
 
-		doThrow(new IOException("Simulated Exception")).when(fdrXmlCommon)
-				.convertXmlToJson(any(), anyString(), any(), anyString(), anyLong(), anyBoolean());
+    // execute logic
+    Exception thrownException =
+        assertThrows(Exception.class, () -> queueTriggerFn.run(message, dequeueCount, context));
 
-		// execute logic
-		Exception thrownException = assertThrows(Exception.class, () ->
-				queueTriggerFn.run(message, dequeueCount, context));
-
-		assertNotNull(thrownException);
-	}
-
+    assertNotNull(thrownException);
+  }
 }

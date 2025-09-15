@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "FdR - XML to JSON ${service}",
-    "version": "1.0.9",
+    "version": "1.0.9-1-PAGOPA-2800-fd-r-sampling-dei-log-su-ai-e-elk",
     "description": "FDR XML to JSON API REST"
   },
   "paths": {
