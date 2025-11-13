@@ -56,11 +56,11 @@ public class FdrXmlCommon {
       MDC.put("psp", pspId);
 
       // delete previous create FDR flow
-      deleteFdrFlow(tryToDelete, fdr, pspId);
+      deleteFdrFlow(tryToDelete, fdr, pspId, retryAttempt);
 
       // call create FDR flow
       createFdRFlow(
-          fdr, pspId, nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento, retryAttempt);
+          fdr, pspId, nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento, retryAttempt, tryToDelete);
 
       // call add FDR payments
       addFdRPayments(fdr, pspId, ctFlussoRiversamento, retryAttempt);
@@ -84,6 +84,7 @@ public class FdrXmlCommon {
   }
 
   private enum HttpEventTypeEnum {
+    INTERNAL_DELETE,
     INTERNAL_CREATE,
     INTERNAL_ADD_PAYMENT,
     INTERNAL_ADD_PAYMENT_ERROR_RESPONSE_EMPTY,
@@ -91,6 +92,7 @@ public class FdrXmlCommon {
     INTERNAL_PUBLISH;
   }
 
+  /*
   private void deleteFdrFlow(boolean tryToDelete, String fdr, String pspId) {
     if (tryToDelete) {
       try {
@@ -99,66 +101,188 @@ public class FdrXmlCommon {
         log.warn("Delete previous fdr flow - failed {}", e.getResponseBody(), e);
       }
     }
+  }*/
+  
+  // [PIDM-1766] When enabled, delete any previous flow before recreating it.
+  // This is required to avoid mixing a partial REST upload with the SOAP-to-REST translation flow.
+  private void deleteFdrFlow(boolean tryToDelete, String fdr, String pspId, long retryAttempt) {
+      if (!tryToDelete) {
+          log.debug("Preventive delete skipped [fdr={}, pspId={}]", fdr, pspId);
+          return;
+      }
+
+      try {
+          FdR3ClientUtil.getPspApi().internalDelete(fdr, pspId); // clears the entire stream from FDR
+          log.info("Previous unpublished flow deleted [fdr={}, pspId={}]", fdr, pspId);
+      } catch (ApiException e) {
+          if (e.getCode() == HttpStatus.NOT_FOUND.value()) {
+              // Nothing to delete: this is the expected case when no previous flow exists.
+              log.info("No previous unpublished flow found [fdr={}, pspId={}]", fdr, pspId);
+              return;
+          }        
+          // Any delete error different from NOT_FOUND must stop the processing.
+          // Continuing from a dirty state may generate duplicated payments.
+          log.error(
+                  "Preventive delete failed [fdr={}, pspId={}, statusCode={}] {}",
+                  fdr,
+                  pspId,
+                  e.getCode(),
+                  e.getResponseBody(),
+                  e);
+
+          saveOnTableAndThrow(
+                  pspId,
+                  fdr,
+                  ErrorEnum.HTTP_ERROR,
+                  HttpEventTypeEnum.INTERNAL_DELETE,
+                  String.valueOf(e.getCode()),
+                  String.valueOf(retryAttempt),
+                  e);
+      }
   }
 
+  
+  // [PIDM-1766] Create the flow only after the previous state has been cleaned up.
+  // If the flow still exists after preventive delete, the process must fail.
   private void createFdRFlow(
-      String fdr,
-      String pspId,
-      NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest,
-      CtFlussoRiversamento ctFlussoRiversamento,
-      long retryAttempt)
-      throws IOException {
+          String fdr,
+          String pspId,
+          NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest,
+          CtFlussoRiversamento ctFlussoRiversamento,
+          long retryAttempt,
+          boolean tryToDelete)
+                  throws IOException {
 
-    String operation = "Create request";
-    log.info(operation);
-    try {
-      FdR3ClientUtil fdR3ClientUtil = new FdR3ClientUtil();
-      // create body for create FDR
-      CreateRequest createRequest =
-          fdR3ClientUtil.getCreateRequest(
-              nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento);
+      String operation = "Create request";
+      log.info(operation);
 
-      FdR3ClientUtil.getPspApi().internalCreate(fdr, pspId, createRequest);
-    } catch (ApiException e) {
-      if (e.getCode() == HttpStatus.BAD_REQUEST.value()) {
-        ErrorResponse errorBody = ErrorResponse.fromJson(e.getResponseBody());
-        if (errorBody != null) {
-          String appErrorCode = errorBody.getAppErrorCode();
-          if (appErrorCode == null || !appErrorCode.equals(AppConstant.FDR_FLOW_ALREADY_CREATED)) {
-            // error != FDR-3002
-            // save on table storage and send alert
-            log.error("{} error [appErrorCode: {}]", operation, appErrorCode);
+      try {
+          FdR3ClientUtil fdR3ClientUtil = new FdR3ClientUtil();
 
-            saveOnTableAndThrow(
-                pspId,
-                fdr,
-                ErrorEnum.HTTP_ERROR,
-                HttpEventTypeEnum.INTERNAL_CREATE,
-                appErrorCode,
-                String.valueOf(retryAttempt),
-                e);
-          }
-        } else {
-          saveOnTableAndThrow(
+          // create body for create FDR
+          CreateRequest createRequest =
+                  fdR3ClientUtil.getCreateRequest(
+                          nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento);
+
+          FdR3ClientUtil.getPspApi().internalCreate(fdr, pspId, createRequest);
+
+      } catch (ApiException e) {
+          handleCreateFlowException(fdr, pspId, retryAttempt, tryToDelete, operation, e);
+      }
+  }
+  
+  private void handleCreateFlowException(
+          String fdr,
+          String pspId,
+          long retryAttempt,
+          boolean tryToDelete,
+          String operation,
+          ApiException e) {
+
+      if (e.getCode() != HttpStatus.BAD_REQUEST.value()) {
+          saveCreateError(fdr, pspId, retryAttempt, String.valueOf(e.getCode()), e);
+          return;
+      }
+
+      ErrorResponse errorBody;
+      try {
+          errorBody = ErrorResponse.fromJson(e.getResponseBody());
+      } catch (IOException ioException) {
+          // If the error body cannot be parsed, fall back to generic create error handling.
+          log.error(
+                  "{} failed: unable to parse error response body [fdr={}, pspId={}]",
+                  operation,
+                  fdr,
+                  pspId,
+                  ioException);
+
+          saveCreateError(fdr, pspId, retryAttempt, String.valueOf(e.getCode()), e);
+          return;
+      }
+
+      if (errorBody == null) {
+          saveCreateError(fdr, pspId, retryAttempt, String.valueOf(e.getCode()), e);
+          return;
+      }
+
+      handleCreateBadRequest(fdr, pspId, retryAttempt, tryToDelete, operation, errorBody, e);
+  }
+  
+  private void handleCreateBadRequest(
+          String fdr,
+          String pspId,
+          long retryAttempt,
+          boolean tryToDelete,
+          String operation,
+          ErrorResponse errorBody,
+          ApiException e) {
+
+      String appErrorCode = errorBody.getAppErrorCode();
+
+      if (AppConstant.FDR_FLOW_ALREADY_CREATED.equals(appErrorCode)) {
+          handleAlreadyCreatedFlow(fdr, pspId, retryAttempt, tryToDelete, operation, e);
+          return;
+      }
+
+      log.error("{} error [appErrorCode: {}]", operation, appErrorCode);
+
+      saveCreateError(
+              fdr,
+              pspId,
+              retryAttempt,
+              Optional.ofNullable(appErrorCode).orElse(String.valueOf(e.getCode())),
+              e);
+  }
+  
+  private void handleAlreadyCreatedFlow(
+          String fdr,
+          String pspId,
+          long retryAttempt,
+          boolean tryToDelete,
+          String operation,
+          ApiException e) {
+
+      if (tryToDelete) {
+          // After a preventive delete, FLOW_ALREADY_CREATED means the cleanup did not succeed.
+          // Must stop to avoid appending payments to a stale flow.
+          log.error(
+                  "{} failed: flow still exists after preventive delete [fdr={}, pspId={}]",
+                  operation,
+                  fdr,
+                  pspId);
+
+          saveCreateError(
+                  fdr,
+                  pspId,
+                  retryAttempt,
+                  AppConstant.FDR_FLOW_ALREADY_CREATED,
+                  e);
+          return;
+      }
+
+      // Tolerate already existing flow only when preventive delete is not required.
+      log.warn(
+              "{} skipped: flow already exists [fdr={}, pspId={}]",
+              operation,
+              fdr,
+              pspId);
+  }
+  
+  private void saveCreateError(
+          String fdr,
+          String pspId,
+          long retryAttempt,
+          String errorCode,
+          ApiException e) {
+
+      saveOnTableAndThrow(
               pspId,
               fdr,
               ErrorEnum.HTTP_ERROR,
               HttpEventTypeEnum.INTERNAL_CREATE,
-              String.valueOf(e.getCode()),
+              errorCode,
               String.valueOf(retryAttempt),
               e);
-        }
-      } else {
-        saveOnTableAndThrow(
-            pspId,
-            fdr,
-            ErrorEnum.HTTP_ERROR,
-            HttpEventTypeEnum.INTERNAL_CREATE,
-            String.valueOf(e.getCode()),
-            String.valueOf(retryAttempt),
-            e);
-      }
-    }
   }
 
   private void addFdRPayments(

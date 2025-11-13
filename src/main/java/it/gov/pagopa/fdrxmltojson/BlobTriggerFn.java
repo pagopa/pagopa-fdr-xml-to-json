@@ -35,7 +35,9 @@ public class BlobTriggerFn {
         MDC.put("sessionId", sessionId);
         MDC.put("invocationId", context.getInvocationId());
         MDC.put("fileName", fileName);
-        fdrXmlCommon.convertXmlToJson(content, 0, false);
+        // [PIDM-1766] Enable preventive delete before recreating the flow.
+        // This avoids duplicate payments when a previous attempt partially created the same flow.
+        fdrXmlCommon.convertXmlToJson(content, 0, true);
       } finally {
         MDC.clear();
       }
