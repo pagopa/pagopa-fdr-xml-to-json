@@ -9,6 +9,11 @@ import org.openapitools.client.ApiClient;
 import org.openapitools.client.api.InternalPspApi;
 import org.openapitools.client.model.*;
 
+import javax.xml.datatype.DatatypeConfigurationException;
+import javax.xml.datatype.DatatypeFactory;
+import javax.xml.datatype.XMLGregorianCalendar;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +56,7 @@ public class FdR3ClientUtil {
     public CreateRequest getCreateRequest(NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest, CtFlussoRiversamento ctFlussoRiversamento){
         CreateRequest createRequest = new CreateRequest();
         createRequest.setFdr(nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso());
-        createRequest.setFdrDate(nodoInviaFlussoRendicontazioneRequest.getDataOraFlusso().toGregorianCalendar().toZonedDateTime().toOffsetDateTime());
+        createRequest.setFdrDate(nodoInviaFlussoRendicontazioneRequest.getDataOraFlusso().toGregorianCalendar().toZonedDateTime().toOffsetDateTime().withOffsetSameLocal(ZoneOffset.UTC));
         createRequest.setSender(getSender(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento));
         createRequest.setReceiver(getReceiver(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento));
         createRequest.setRegulation(ctFlussoRiversamento.getIdentificativoUnivocoRegolamento());
