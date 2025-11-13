@@ -21,11 +21,10 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.InOrder;
 import org.openapitools.client.ApiException;
 import org.openapitools.client.api.InternalPspApi;
-import org.openapitools.client.model.ErrorResponse;
 import org.openapitools.client.model.GenericResponse;
-import org.powermock.reflect.Whitebox;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
@@ -42,7 +41,6 @@ class BlobTriggerFnTest {
   @SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
   private MockedStatic<StorageAccountUtil> mockStorageAccountUtil;
-  private MockedStatic<ErrorResponse> mockErrorResponseUtil;
 
   @BeforeEach
   void setUp() {
@@ -66,54 +64,62 @@ class BlobTriggerFnTest {
   @Test
   @SneakyThrows
   void runOk_withoutAdditionalProperties() {
-    // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
     InternalPspApi pspApi = TestUtil.getPspApi();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
+
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
     when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
     when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
 
-    // execute logic
     blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context);
 
-    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-    verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
-    verify(pspApi, times(1)).internalPublish(anyString(), anyString());
+    InOrder inOrder = inOrder(pspApi);
+    inOrder.verify(pspApi).internalDelete(anyString(), anyString());
+    inOrder.verify(pspApi).internalCreate(anyString(), anyString(), any());
+    inOrder.verify(pspApi).internalAddPayment(anyString(), anyString(), any());
+    inOrder.verify(pspApi).internalPublish(anyString(), anyString());
   }
 
   @Test
   @SneakyThrows
   void runKo_pspHttpError_create_genericException() {
-    // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
-
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
 
     InternalPspApi pspApi = TestUtil.getPspApi();
     Map<String, String> metadata = TestUtil.getMetadata();
     String uuid = UUID.randomUUID().toString();
 
+    GenericResponse genericResponse = new GenericResponse();
+    genericResponse.setMessage("OK");
+
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
     when(pspApi.internalCreate(anyString(), anyString(), any()))
         .thenThrow(new ApiException("Test Exception"));
 
-    // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, never()).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
   }
 
   @Test
   @SneakyThrows
   void runKo_pspHttpError_create_apiException_400_appErrorCodeValid() {
-    // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
+
+    GenericResponse genericResponse = new GenericResponse();
+    genericResponse.setMessage("OK");
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
 
     String responseBody =
         String.format(
@@ -122,12 +128,14 @@ class BlobTriggerFnTest {
     ApiException apiException = new ApiException(400, "message", new HashMap<>(), responseBody);
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(apiException);
 
-    // execute logic
-    blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context);
+    Assertions.assertThrows(
+        AppException.class,
+        () -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
 
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
     verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
-    verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
-    verify(pspApi, times(1)).internalPublish(anyString(), anyString());
+    verify(pspApi, never()).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
   }
 
   @Test
@@ -136,11 +144,13 @@ class BlobTriggerFnTest {
     // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
     Map<String, String> metadata = TestUtil.getMetadata();
     String uuid = UUID.randomUUID().toString();
+    
+    GenericResponse genericResponse = new GenericResponse();
+    genericResponse.setMessage("OK");
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
 
     String responseBody =
         "{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"errors\":[{\"path\":\"<detail.path.if-exist>\",\"message\":\"<detail.message>\"}]}";
@@ -150,6 +160,11 @@ class BlobTriggerFnTest {
     // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+    
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, never()).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
   }
 
   @Test
@@ -158,11 +173,13 @@ class BlobTriggerFnTest {
     // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
     Map<String, String> metadata = TestUtil.getMetadata();
     String uuid = UUID.randomUUID().toString();
+    
+    GenericResponse genericResponse = new GenericResponse();
+    genericResponse.setMessage("OK");
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
 
     String responseBody =
         "{\"httpStatusCode\":400,\"httpStatusDescription\":\"Bad Request\",\"appErrorCode\":\"FDR-XXXX\",\"errors\":[{\"path\":\"<detail.path.if-exist>\",\"message\":\"<detail.message>\"}]}";
@@ -172,6 +189,11 @@ class BlobTriggerFnTest {
     // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+    
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, never()).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
   }
 
   @Test
@@ -180,20 +202,26 @@ class BlobTriggerFnTest {
     // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
     Map<String, String> metadata = TestUtil.getMetadata();
     String uuid = UUID.randomUUID().toString();
-
-    ApiException apiException = mock(ApiException.class);
-    Whitebox.setInternalState(apiException, "code", 404);
+    
+    GenericResponse genericResponse = new GenericResponse();
+    genericResponse.setMessage("OK");
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
+    
+    ApiException apiException = new ApiException(404, "message", new HashMap<>(), "");
 
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(apiException);
 
     // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+    
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, never()).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
   }
 
   @Test
@@ -202,8 +230,6 @@ class BlobTriggerFnTest {
     // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
     Map<String, String> metadata = TestUtil.getMetadata();
     String uuid = UUID.randomUUID().toString();
@@ -211,6 +237,7 @@ class BlobTriggerFnTest {
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
 
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
     when(pspApi.internalAddPayment(anyString(), anyString(), any()))
         .thenThrow(new ApiException("Test Exception"));
@@ -218,6 +245,11 @@ class BlobTriggerFnTest {
     // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+    
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
   }
 
   @Test
@@ -226,14 +258,14 @@ class BlobTriggerFnTest {
     // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
     Map<String, String> metadata = TestUtil.getMetadata();
     String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
+    
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
 
     String responseBody =
@@ -246,6 +278,11 @@ class BlobTriggerFnTest {
     // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+    
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
   }
 
   @Test
@@ -254,14 +291,14 @@ class BlobTriggerFnTest {
     // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
     Map<String, String> metadata = TestUtil.getMetadata();
     String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
+    
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
 
     String responseBody =
@@ -272,6 +309,11 @@ class BlobTriggerFnTest {
     // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+    
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
   }
 
   @Test
@@ -280,12 +322,12 @@ class BlobTriggerFnTest {
     // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
+    
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
 
     String responseBody =
@@ -301,6 +343,7 @@ class BlobTriggerFnTest {
     verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
     verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
     verify(pspApi, times(1)).internalPublish(anyString(), anyString());
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
   }
 
   @Test
@@ -310,14 +353,14 @@ class BlobTriggerFnTest {
     byte[] content =
         TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione_morePayments.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
     Map<String, String> metadata = TestUtil.getMetadata();
     String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
+    
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
 
     String responseBody =
@@ -330,6 +373,11 @@ class BlobTriggerFnTest {
     // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+    
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, times(3)).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
   }
 
   @Test
@@ -339,14 +387,14 @@ class BlobTriggerFnTest {
     byte[] content =
         TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione_morePayments.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
     Map<String, String> metadata = TestUtil.getMetadata();
     String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
+    
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
 
     String responseBody =
@@ -359,6 +407,11 @@ class BlobTriggerFnTest {
     // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+    
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
   }
 
   @Test
@@ -367,12 +420,12 @@ class BlobTriggerFnTest {
     // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
+    
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
     when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
 
@@ -384,6 +437,7 @@ class BlobTriggerFnTest {
     // execute logic
     blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context);
 
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
     verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
     verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
     verify(pspApi, times(1)).internalPublish(anyString(), anyString());
@@ -395,14 +449,14 @@ class BlobTriggerFnTest {
     // generating input
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
 
-    mockStorageAccountUtil.when(StorageAccountUtil::getTableClient).thenReturn(mockTableClient);
-
     InternalPspApi pspApi = TestUtil.getPspApi();
     Map<String, String> metadata = TestUtil.getMetadata();
     String uuid = UUID.randomUUID().toString();
 
     GenericResponse genericResponse = new GenericResponse();
     genericResponse.setMessage("OK");
+    
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
     when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
     when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
 
@@ -414,5 +468,102 @@ class BlobTriggerFnTest {
     // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+    
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, times(1)).internalPublish(anyString(), anyString());
+  }
+  
+  @Test
+  @SneakyThrows
+  void runOk_whenPreventiveDeleteReturns404() {
+    byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+
+    InternalPspApi pspApi = TestUtil.getPspApi();
+
+    ApiException deleteNotFound =
+        new ApiException(
+            404,
+            "not found",
+            new HashMap<>(),
+            "{\"httpStatusCode\":404,\"appErrorCode\":\"FDR-3001\"}");
+
+    GenericResponse genericResponse = new GenericResponse();
+    genericResponse.setMessage("OK");
+
+    when(pspApi.internalDelete(anyString(), anyString())).thenThrow(deleteNotFound);
+    when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
+    when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
+    when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
+
+    blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context);
+
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, times(1)).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, times(1)).internalPublish(anyString(), anyString());
+  }
+  
+  @Test
+  @SneakyThrows
+  void runKo_whenPreventiveDeleteFails() {
+    byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+
+    InternalPspApi pspApi = TestUtil.getPspApi();
+
+    ApiException deleteError =
+        new ApiException(
+            500,
+            "server error",
+            new HashMap<>(),
+            "{\"httpStatusCode\":500,\"appErrorCode\":\"FDR-9999\"}");
+
+    when(pspApi.internalDelete(anyString(), anyString())).thenThrow(deleteError);
+
+    Assertions.assertThrows(
+        AppException.class,
+        () -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, never()).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, never()).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
+  }
+  
+  @Test
+  @SneakyThrows
+  void runKo_whenCreateReturnsBadRequestWithUnparseableBody() {
+    byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione.xml");
+
+    InternalPspApi pspApi = TestUtil.getPspApi();
+
+    GenericResponse genericResponse = new GenericResponse();
+    genericResponse.setMessage("OK");
+
+    ApiException apiException = new ApiException(400, "message", new HashMap<>(), "not-a-json-body");
+
+    when(pspApi.internalDelete(anyString(), anyString())).thenReturn(genericResponse);
+    when(pspApi.internalCreate(anyString(), anyString(), any())).thenThrow(apiException);
+
+    Assertions.assertThrows(
+        AppException.class,
+        () -> blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context));
+
+    verify(pspApi, times(1)).internalDelete(anyString(), anyString());
+    verify(pspApi, times(1)).internalCreate(anyString(), anyString(), any());
+    verify(pspApi, never()).internalAddPayment(anyString(), anyString(), any());
+    verify(pspApi, never()).internalPublish(anyString(), anyString());
+  }
+  
+  @Test
+  void runKo_whenContentIsNotGzip() {
+    byte[] invalidContent = new byte[] {1, 2, 3, 4};
+    String blobName = UUID.randomUUID().toString();
+    Map<String, String> metadata = TestUtil.getMetadata();
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> blobTriggerFn.run(invalidContent, blobName, metadata, context));
   }
 }
