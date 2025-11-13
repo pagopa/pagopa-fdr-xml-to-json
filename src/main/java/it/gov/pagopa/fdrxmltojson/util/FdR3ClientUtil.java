@@ -9,11 +9,14 @@ import org.openapitools.client.ApiClient;
 import org.openapitools.client.api.InternalPspApi;
 import org.openapitools.client.model.*;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import javax.xml.datatype.DatatypeFactory;
+import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.XMLGregorianCalendar;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +33,8 @@ public class FdR3ClientUtil {
 
     private static final Map<StTipoIdentificativoUnivoco, SenderTypeEnum> typeMap = new LinkedHashMap<>();
     private static final Map<String, PaymentStatusEnum> payStatusMap = new LinkedHashMap<>();
+    
+    private static final ZoneId ITALY_ZONE = ZoneId.of("Europe/Rome");
 
     static {
         typeMap.put(StTipoIdentificativoUnivoco.G, SenderTypeEnum.LEGAL_PERSON);
@@ -56,11 +61,11 @@ public class FdR3ClientUtil {
     public CreateRequest getCreateRequest(NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest, CtFlussoRiversamento ctFlussoRiversamento){
         CreateRequest createRequest = new CreateRequest();
         createRequest.setFdr(nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso());
-        createRequest.setFdrDate(nodoInviaFlussoRendicontazioneRequest.getDataOraFlusso().toGregorianCalendar().toZonedDateTime().toOffsetDateTime().withOffsetSameLocal(ZoneOffset.UTC));
+        createRequest.setFdrDate(toOffsetDateTimePreservingSemantic(nodoInviaFlussoRendicontazioneRequest.getDataOraFlusso()));
         createRequest.setSender(getSender(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento));
         createRequest.setReceiver(getReceiver(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento));
         createRequest.setRegulation(ctFlussoRiversamento.getIdentificativoUnivocoRegolamento());
-        createRequest.setRegulationDate(ctFlussoRiversamento.getDataRegolamento().toGregorianCalendar().toZonedDateTime().toOffsetDateTime());
+        createRequest.setRegulationDate(toLocalDateAtStartOfItalyOffset(ctFlussoRiversamento.getDataRegolamento()));
         createRequest.setBicCodePouringBank(ctFlussoRiversamento.getCodiceBicBancaDiRiversamento());
         createRequest.setTotPayments(ctFlussoRiversamento.getNumeroTotalePagamenti().longValue());
         createRequest.setSumPayments(ctFlussoRiversamento.getImportoTotalePagamenti().doubleValue());
@@ -114,8 +119,57 @@ public class FdR3ClientUtil {
         payment.setIuv(ctDatiSingoliPagamenti.getIdentificativoUnivocoVersamento());
         payment.setIur(ctDatiSingoliPagamenti.getIdentificativoUnivocoRiscossione());
         payment.setPay(ctDatiSingoliPagamenti.getSingoloImportoPagato().doubleValue());
-        payment.setPayDate(ctDatiSingoliPagamenti.getDataEsitoSingoloPagamento().toGregorianCalendar().toZonedDateTime().toOffsetDateTime());
+        payment.setPayDate(toLocalDateAtStartOfItalyOffset(ctDatiSingoliPagamenti.getDataEsitoSingoloPagamento()));
         payment.setPayStatus(payStatusMap.get(ctDatiSingoliPagamenti.getCodiceEsitoSingoloPagamento()));
         return payment;
+    }
+    
+    /**
+     * [PIDM-1734]
+     * Convert XMLGregorianCalendar to OffsetDateTime, preserving the original semantics of the date/time value.
+     * - if PSP sends 'Z' or '+00:00', keep the original explicit timezone
+     * - If the PSP does not send timezone, explicitly use 'Europe/Rome', as requested by the ticket
+     * @param value The XMLGregorianCalendar to convert.
+     * @return OffsetDateTime representing the same instant as the input XMLGregorianCalendar, preserving the original timezone semantics. Returns null if the input is null.
+     */
+    private OffsetDateTime toOffsetDateTimePreservingSemantic(XMLGregorianCalendar value) {
+        if (value == null) {
+            return null;
+        }
+
+        if (value.getTimezone() != DatatypeConstants.FIELD_UNDEFINED) {
+            return value.toGregorianCalendar().toZonedDateTime().toOffsetDateTime();
+        }
+
+        LocalDate localDate = LocalDate.of(value.getYear(), value.getMonth(), value.getDay());
+
+        LocalTime localTime = LocalTime.of(value.getHour(), value.getMinute(), value.getSecond());
+
+        return LocalDateTime.of(localDate, localTime).atZone(ITALY_ZONE).toOffsetDateTime();
+    }
+    
+    /**
+     * [PIDM-1734]
+     * Converts an XMLGregorianCalendar to an OffsetDateTime fixed at the start of the day
+     * in the Italian time zone (Europe/Rome).
+     *
+     * This helper is used for date-only values coming from FDR1, so that transmission toward
+     * FDR3 preserves the original local calendar date and avoids implicit timezone shifts.
+     *
+     * Example:
+     * input  -> 2026-03-24
+     * output -> 2026-03-24T00:00:00+01:00
+     *
+     * @param value the XMLGregorianCalendar source date
+     * @return the start of day in Europe/Rome for the given date, or null if input is null
+     */
+    private OffsetDateTime toLocalDateAtStartOfItalyOffset(XMLGregorianCalendar value) {
+        if (value == null) {
+            return null;
+        }
+
+        LocalDate localDate = LocalDate.of(value.getYear(), value.getMonth(), value.getDay());
+
+        return localDate.atStartOfDay(ITALY_ZONE).toOffsetDateTime();
     }
 }
