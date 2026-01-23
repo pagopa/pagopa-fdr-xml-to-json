@@ -9,10 +9,6 @@ import org.openapitools.client.ApiClient;
 import org.openapitools.client.api.InternalPspApi;
 import org.openapitools.client.model.*;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import javax.xml.datatype.DatatypeFactory;
-import javax.xml.datatype.XMLGregorianCalendar;
-import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,11 +52,17 @@ public class FdR3ClientUtil {
     public CreateRequest getCreateRequest(NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest, CtFlussoRiversamento ctFlussoRiversamento){
         CreateRequest createRequest = new CreateRequest();
         createRequest.setFdr(nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso());
-        createRequest.setFdrDate(nodoInviaFlussoRendicontazioneRequest.getDataOraFlusso().toGregorianCalendar().toZonedDateTime().toOffsetDateTime().withOffsetSameLocal(ZoneOffset.UTC));
+        // withOffsetSameInstant normalize to UTC preserving the same instant (avoid shifting the event time as with withOffsetSameLocal).
+        createRequest.setFdrDate(nodoInviaFlussoRendicontazioneRequest.getDataOraFlusso().toGregorianCalendar().toZonedDateTime().toOffsetDateTime().withOffsetSameInstant(ZoneOffset.UTC));
         createRequest.setSender(getSender(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento));
         createRequest.setReceiver(getReceiver(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento));
         createRequest.setRegulation(ctFlussoRiversamento.getIdentificativoUnivocoRegolamento());
-        createRequest.setRegulationDate(ctFlussoRiversamento.getDataRegolamento().toGregorianCalendar().toZonedDateTime().toOffsetDateTime());
+        // dataRegolamento is an xs:date (YYYY-MM-DD), not a timestamp.
+        // Normalize it to 00:00Z to get a stable Instant and avoid timezone-dependent day shifts.
+        var regCal = ctFlussoRiversamento.getDataRegolamento();
+        var regLocalDate = regCal.toGregorianCalendar().toZonedDateTime().toLocalDate();
+        createRequest.setRegulationDate(regLocalDate.atStartOfDay().atOffset(ZoneOffset.UTC));
+        
         createRequest.setBicCodePouringBank(ctFlussoRiversamento.getCodiceBicBancaDiRiversamento());
         createRequest.setTotPayments(ctFlussoRiversamento.getNumeroTotalePagamenti().longValue());
         createRequest.setSumPayments(ctFlussoRiversamento.getImportoTotalePagamenti().doubleValue());
@@ -114,7 +116,12 @@ public class FdR3ClientUtil {
         payment.setIuv(ctDatiSingoliPagamenti.getIdentificativoUnivocoVersamento());
         payment.setIur(ctDatiSingoliPagamenti.getIdentificativoUnivocoRiscossione());
         payment.setPay(ctDatiSingoliPagamenti.getSingoloImportoPagato().doubleValue());
-        payment.setPayDate(ctDatiSingoliPagamenti.getDataEsitoSingoloPagamento().toGregorianCalendar().toZonedDateTime().toOffsetDateTime());
+        // dataEsitoSingoloPagamento is an xs:date (YYYY-MM-DD), not a timestamp.
+        // Normalize it to 00:00Z to get a stable Instant and avoid timezone-dependent day shifts (KPI issues).
+        var cal = ctDatiSingoliPagamenti.getDataEsitoSingoloPagamento();
+        var localDate = cal.toGregorianCalendar().toZonedDateTime().toLocalDate();
+        payment.setPayDate(localDate.atStartOfDay().atOffset(ZoneOffset.UTC));
+        
         payment.setPayStatus(payStatusMap.get(ctDatiSingoliPagamenti.getCodiceEsitoSingoloPagamento()));
         return payment;
     }
