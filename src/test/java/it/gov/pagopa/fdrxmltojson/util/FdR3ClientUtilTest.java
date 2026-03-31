@@ -55,7 +55,8 @@ class FdR3ClientUtilTest {
     assertEquals("BANCA S.C.P.A.", result.getSender().getPspName());
     assertEquals("91135022588", result.getSender().getPspBrokerId());
     assertEquals("91135022588_04", result.getSender().getChannelId());
-    assertEquals("password", result.getSender().getPassword());
+    // The NOSONAR comment bypasses the Sonar check without causing Java syntax errors, allowing to assert the password value for testing purposes
+    assertEquals("password", result.getSender().getPassword()); // NOSONAR
 
     assertNotNull(result.getReceiver());
     assertEquals("12344360123", result.getReceiver().getId());
