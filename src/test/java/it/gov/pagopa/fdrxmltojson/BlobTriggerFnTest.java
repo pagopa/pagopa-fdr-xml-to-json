@@ -1,6 +1,7 @@
 package it.gov.pagopa.fdrxmltojson;
 
 import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.azure.data.tables.TableClient;
 import com.microsoft.azure.functions.ExecutionContext;
@@ -8,6 +9,8 @@ import it.gov.pagopa.fdrxmltojson.model.AppConstant;
 import it.gov.pagopa.fdrxmltojson.util.AppException;
 import it.gov.pagopa.fdrxmltojson.util.StorageAccountUtil;
 import it.gov.pagopa.fdrxmltojson.util.TestUtil;
+
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -17,14 +20,17 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.openapitools.client.ApiException;
 import org.openapitools.client.api.InternalPspApi;
-import org.openapitools.client.model.ErrorResponse;
+import org.openapitools.client.model.AddPaymentRequest;
+import org.openapitools.client.model.CreateRequest;
 import org.openapitools.client.model.GenericResponse;
+import org.openapitools.client.model.Payment;
 import org.powermock.reflect.Whitebox;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 import uk.org.webcompere.systemstubs.jupiter.SystemStub;
@@ -42,7 +48,6 @@ class BlobTriggerFnTest {
   @SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
   private MockedStatic<StorageAccountUtil> mockStorageAccountUtil;
-  private MockedStatic<ErrorResponse> mockErrorResponseUtil;
 
   @BeforeEach
   void setUp() {
@@ -414,5 +419,51 @@ class BlobTriggerFnTest {
     // execute logic
     Assertions.assertThrows(
         AppException.class, () -> blobTriggerFn.run(content, uuid, metadata, context));
+  }
+  
+  @Test
+  @SneakyThrows
+  void runOk_shouldSendCreateAndPaymentDatesWithoutShift() {
+      
+    byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione_pidm1734.xml");
+
+    InternalPspApi pspApi = TestUtil.getPspApi();
+
+    GenericResponse genericResponse = new GenericResponse();
+    genericResponse.setMessage("OK");
+
+    ArgumentCaptor<CreateRequest> createCaptor = ArgumentCaptor.forClass(CreateRequest.class);
+    ArgumentCaptor<AddPaymentRequest> addPaymentCaptor = ArgumentCaptor.forClass(AddPaymentRequest.class);
+
+    when(pspApi.internalCreate(anyString(), anyString(), any())).thenReturn(genericResponse);
+    when(pspApi.internalAddPayment(anyString(), anyString(), any())).thenReturn(genericResponse);
+    when(pspApi.internalPublish(anyString(), anyString())).thenReturn(genericResponse);
+
+    // when
+    blobTriggerFn.run(content, UUID.randomUUID().toString(), TestUtil.getMetadata(), context);
+
+    // then
+    verify(pspApi).internalCreate(anyString(), anyString(), createCaptor.capture());
+    verify(pspApi).internalAddPayment(anyString(), anyString(), addPaymentCaptor.capture());
+    verify(pspApi).internalPublish(anyString(), anyString());
+
+    CreateRequest createRequest = createCaptor.getValue();
+    assertEquals("2026-03-24TESTPSP01-CASEPIDM1734", createRequest.getFdr());
+    assertEquals(
+        OffsetDateTime.parse("2026-03-25T15:59:47+01:00"),
+        createRequest.getFdrDate());
+    assertEquals("REG-TEST-PIDM1734", createRequest.getRegulation());
+    assertEquals(
+        OffsetDateTime.parse("2026-03-24T00:00:00+01:00"),
+        createRequest.getRegulationDate());
+
+    AddPaymentRequest addPaymentRequest = addPaymentCaptor.getValue();
+    Payment payment = addPaymentRequest.getPayments().get(0);
+
+    assertEquals("IUVPIDM173400001", payment.getIuv());
+    assertEquals("IURPIDM173400001", payment.getIur());
+    assertEquals(
+        OffsetDateTime.parse("2026-03-24T00:00:00+01:00"),
+        payment.getPayDate());
   }
 }
