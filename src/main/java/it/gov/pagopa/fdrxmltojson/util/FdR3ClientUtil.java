@@ -34,7 +34,10 @@ public class FdR3ClientUtil {
     private static final Map<StTipoIdentificativoUnivoco, SenderTypeEnum> typeMap = new LinkedHashMap<>();
     private static final Map<String, PaymentStatusEnum> payStatusMap = new LinkedHashMap<>();
     
+    // Italian local timezone used to interpret FDR1 values without explicit timezone
     private static final ZoneId ITALY_ZONE = ZoneId.of("Europe/Rome");
+    // Target timezone used to normalize true datetime values before saving them on FDR3
+    private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
 
     static {
         typeMap.put(StTipoIdentificativoUnivoco.G, SenderTypeEnum.LEGAL_PERSON);
@@ -61,7 +64,7 @@ public class FdR3ClientUtil {
     public CreateRequest getCreateRequest(NodoInviaFlussoRendicontazioneRequest nodoInviaFlussoRendicontazioneRequest, CtFlussoRiversamento ctFlussoRiversamento){
         CreateRequest createRequest = new CreateRequest();
         createRequest.setFdr(nodoInviaFlussoRendicontazioneRequest.getIdentificativoFlusso());
-        createRequest.setFdrDate(toOffsetDateTimePreservingSemantic(nodoInviaFlussoRendicontazioneRequest.getDataOraFlusso()));
+        createRequest.setFdrDate(toUtcOffsetDateTime(nodoInviaFlussoRendicontazioneRequest.getDataOraFlusso()));
         createRequest.setSender(getSender(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento));
         createRequest.setReceiver(getReceiver(nodoInviaFlussoRendicontazioneRequest, ctFlussoRiversamento));
         createRequest.setRegulation(ctFlussoRiversamento.getIdentificativoUnivocoRegolamento());
@@ -126,42 +129,67 @@ public class FdR3ClientUtil {
     
     /**
      * [PIDM-1734]
-     * Convert XMLGregorianCalendar to OffsetDateTime, preserving the original semantics of the date/time value.
-     * - if PSP sends 'Z' or '+00:00', keep the original explicit timezone
-     * - If the PSP does not send timezone, explicitly use 'Europe/Rome', as requested by the ticket
-     * @param value The XMLGregorianCalendar to convert.
-     * @return OffsetDateTime representing the same instant as the input XMLGregorianCalendar, preserving the original timezone semantics. Returns null if the input is null.
+     * Converts an XMLGregorianCalendar datetime into an OffsetDateTime normalized to UTC.
+     *
+     * Conversion rules:
+     * - if the source value contains an explicit timezone (for example 'Z' or '+06:00'),
+     *   that timezone is respected and the value is converted to UTC
+     * - if the source value does not contain timezone information, it is interpreted as
+     *   local Italian time ('Europe/Rome') and then converted to UTC
+     *
+     * Examples:
+     * - 2026-04-10T12:59:12.989Z      -> 2026-04-10T12:59:12.989Z
+     * - 2026-04-10T12:59:12.989+06:00 -> 2026-04-10T06:59:12.989Z
+     * - 2026-04-10T12:59:12.989       -> interpreted in Europe/Rome, then converted to UTC
+     *
+     *
+     * @param value the source XMLGregorianCalendar datetime
+     * @return the corresponding OffsetDateTime normalized to UTC, or null if the input is null
      */
-    private OffsetDateTime toOffsetDateTimePreservingSemantic(XMLGregorianCalendar value) {
+    private OffsetDateTime toUtcOffsetDateTime(XMLGregorianCalendar value) {
         if (value == null) {
             return null;
         }
 
         if (value.getTimezone() != DatatypeConstants.FIELD_UNDEFINED) {
-            return value.toGregorianCalendar().toZonedDateTime().toOffsetDateTime();
+            return value.toGregorianCalendar()
+                    .toZonedDateTime()
+                    .withZoneSameInstant(UTC_ZONE)
+                    .toOffsetDateTime();
         }
 
         LocalDate localDate = LocalDate.of(value.getYear(), value.getMonth(), value.getDay());
 
-        LocalTime localTime = LocalTime.of(value.getHour(), value.getMinute(), value.getSecond());
+        LocalTime localTime = LocalTime.of(
+                value.getHour(),
+                value.getMinute(),
+                value.getSecond(),
+                value.getMillisecond() != DatatypeConstants.FIELD_UNDEFINED ? value.getMillisecond() * 1_000_000 : 0
+        );
 
-        return LocalDateTime.of(localDate, localTime).atZone(ITALY_ZONE).toOffsetDateTime();
+        return LocalDateTime.of(localDate, localTime)
+                .atZone(ITALY_ZONE)
+                .withZoneSameInstant(UTC_ZONE)
+                .toOffsetDateTime();
     }
     
     /**
      * [PIDM-1734]
-     * Converts an XMLGregorianCalendar to an OffsetDateTime fixed at the start of the day
-     * in the Italian time zone (Europe/Rome).
+     * Converts a date-only XMLGregorianCalendar into an OffsetDateTime fixed at the start
+     * of the day in the Italian time zone ('Europe/Rome').
      *
-     * This helper is used for date-only values coming from FDR1, so that transmission toward
-     * FDR3 preserves the original local calendar date and avoids implicit timezone shifts.
+     * This helper is used for business date fields coming from FDR1, such as regulation date
+     * and payment date, where the original local calendar day must be preserved.
+     *
+     * For these fields the goal is not UTC normalization, but day preservation.
+     * Therefore the value is represented as start-of-day in Italian local time.
      *
      * Example:
      * input  -> 2026-03-24
      * output -> 2026-03-24T00:00:00+01:00
      *
-     * @param value the XMLGregorianCalendar source date
-     * @return the start of day in Europe/Rome for the given date, or null if input is null
+     * @param value the source XMLGregorianCalendar date
+     * @return the start of day in Europe/Rome for the given date, or null if the input is null
      */
     private OffsetDateTime toLocalDateAtStartOfItalyOffset(XMLGregorianCalendar value) {
         if (value == null) {

@@ -30,7 +30,7 @@ class FdR3ClientUtilTest {
   private final FdR3ClientUtil fdR3ClientUtil = new FdR3ClientUtil();
 
   @Test
-  void getCreateRequest_shouldPreserveLocalItalianDateTimeWhenTimezoneIsMissing() throws Exception {
+  void getCreateRequest_shouldConvertImplicitItalianLocalDateTimeToUtc() throws Exception {
     NodoInviaFlussoRendicontazioneRequest nodoRequest = buildNodoRequest();
     CtFlussoRiversamento flusso = buildFlussoWithoutTimezone();
 
@@ -39,7 +39,7 @@ class FdR3ClientUtilTest {
     assertNotNull(result);
     assertEquals("2026-03-24ABI07156-BBG7Z00012345678", result.getFdr());
     assertEquals(
-        OffsetDateTime.parse("2026-03-25T15:59:47+01:00"),
+        OffsetDateTime.parse("2026-03-25T14:59:47Z"),
         result.getFdrDate());
     assertEquals("Bonifico SEPA-07156-BBG7Z", result.getRegulation());
     assertEquals(
@@ -55,7 +55,6 @@ class FdR3ClientUtilTest {
     assertEquals("BANCA S.C.P.A.", result.getSender().getPspName());
     assertEquals("91135022588", result.getSender().getPspBrokerId());
     assertEquals("91135022588_04", result.getSender().getChannelId());
-    // The NOSONAR comment bypasses the Sonar check without causing Java syntax errors, allowing to assert the password value for testing purposes
     assertEquals("password", result.getSender().getPassword()); // NOSONAR
 
     assertNotNull(result.getReceiver());
@@ -65,7 +64,7 @@ class FdR3ClientUtilTest {
   }
 
   @Test
-  void getCreateRequest_shouldPreserveExplicitTimezoneWhenPresent() throws Exception {
+  void getCreateRequest_shouldPreserveUtcWhenAlreadyPresent() throws Exception {
     NodoInviaFlussoRendicontazioneRequest nodoRequest = buildNodoRequest();
     nodoRequest.setDataOraFlusso(xmlDateTime("2026-03-25T15:59:47Z"));
 
@@ -76,6 +75,24 @@ class FdR3ClientUtilTest {
     assertNotNull(result);
     assertEquals(
         OffsetDateTime.parse("2026-03-25T15:59:47Z"),
+        result.getFdrDate());
+    assertEquals(
+        OffsetDateTime.parse("2026-03-24T00:00:00+01:00"),
+        result.getRegulationDate());
+  }
+
+  @Test
+  void getCreateRequest_shouldConvertExplicitTimezoneToUtc() throws Exception {
+    NodoInviaFlussoRendicontazioneRequest nodoRequest = buildNodoRequest();
+    nodoRequest.setDataOraFlusso(xmlDateTime("2026-04-10T12:59:12.989+06:00"));
+
+    CtFlussoRiversamento flusso = buildFlussoWithoutTimezone();
+
+    CreateRequest result = fdR3ClientUtil.getCreateRequest(nodoRequest, flusso);
+
+    assertNotNull(result);
+    assertEquals(
+        OffsetDateTime.parse("2026-04-10T06:59:12.989Z"),
         result.getFdrDate());
     assertEquals(
         OffsetDateTime.parse("2026-03-24T00:00:00+01:00"),

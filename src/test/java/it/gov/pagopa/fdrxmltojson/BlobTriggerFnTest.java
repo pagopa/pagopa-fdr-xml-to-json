@@ -423,8 +423,8 @@ class BlobTriggerFnTest {
   
   @Test
   @SneakyThrows
-  void runOk_shouldSendCreateAndPaymentDatesWithoutShift() {
-      
+  void runOk_shouldNormalizeFdrDateToUtcAndPreserveRegulationAndPayDate() {
+
     byte[] content = TestUtil.getFileContent("xmlcontent/nodoInviaFlussoRendicontazione_pidm1734.xml");
 
     InternalPspApi pspApi = TestUtil.getPspApi();
@@ -450,7 +450,7 @@ class BlobTriggerFnTest {
     CreateRequest createRequest = createCaptor.getValue();
     assertEquals("2026-03-24TESTPSP01-CASEPIDM1734", createRequest.getFdr());
     assertEquals(
-        OffsetDateTime.parse("2026-03-25T15:59:47+01:00"),
+        OffsetDateTime.parse("2026-03-25T14:59:47Z"),
         createRequest.getFdrDate());
     assertEquals("REG-TEST-PIDM1734", createRequest.getRegulation());
     assertEquals(
