@@ -91,17 +91,6 @@ public class FdrXmlCommon {
     INTERNAL_ADD_PAYMENT_RETRY_EXCEEDED,
     INTERNAL_PUBLISH;
   }
-
-  /*
-  private void deleteFdrFlow(boolean tryToDelete, String fdr, String pspId) {
-    if (tryToDelete) {
-      try {
-        FdR3ClientUtil.getPspApi().internalDelete(fdr, pspId); // clears the entire stream from FDR
-      } catch (ApiException e) {
-        log.warn("Delete previous fdr flow - failed {}", e.getResponseBody(), e);
-      }
-    }
-  }*/
   
   // [PIDM-1766] When enabled, delete any previous flow before recreating it.
   // This is required to avoid mixing a partial REST upload with the SOAP-to-REST translation flow.
