@@ -5,7 +5,7 @@
 
     <groupId>it.gov.pagopa</groupId>
     <artifactId>fdrxmltojson</artifactId>
-    <version>1.0.12-1-PIDM-1766-duplicate-flows</version>
+    <version>1.0.13</version>
     <packaging>jar</packaging>
 
     <name>FDR XML to JSON Fn</name>
