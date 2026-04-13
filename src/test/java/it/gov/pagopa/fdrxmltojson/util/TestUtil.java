@@ -19,8 +19,8 @@ import com.azure.core.http.rest.PagedIterable;
 import com.azure.core.http.rest.PagedResponse;
 import com.azure.core.util.IterableStream;
 import com.azure.data.tables.models.TableEntity;
-
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
+
 import static org.mockito.Mockito.*;
 
 @UtilityClass
@@ -49,9 +49,10 @@ public class TestUtil {
 
     public String readStringFromFile(String relativePath) throws IOException {
         ClassLoader classLoader = TestUtil.class.getClassLoader();
+
         try (var inputStream = classLoader.getResourceAsStream(relativePath)) {
             if (inputStream == null) {
-                throw new IOException("Test resource not found: " + relativePath);
+                throw new IOException("Resource not found: " + relativePath);
             }
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         }

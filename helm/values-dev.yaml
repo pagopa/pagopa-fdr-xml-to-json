@@ -2,7 +2,7 @@ microservice-chart: &microservice-chart
   namespace: "fdr"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-xml-to-json
-    tag: "1.0.12"
+    tag: "1.0.14"
     pullPolicy: Always
   livenessProbe:
     handlerType: tcpSocket
@@ -83,7 +83,7 @@ microservice-chart: &microservice-chart
     ERROR_TABLE_NAME: "fdr1conversionerror"
     BLOB_TRIGGER_POISON_QUEUE: "webjobs-blobtrigger-poison"
     FDR_NEW_BASE_URL: "https://api.dev.platform.pagopa.it/fdr-internal/service/v1"
-    ADD_PAYMENT_REQUEST_PARTITION_SIZE: "1000"
+    ADD_PAYMENT_REQUEST_PARTITION_SIZE: "5000"
     MAX_RETRY_COUNT: "5"
     ASPNETCORE_URLS: "http://*:8080"
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
