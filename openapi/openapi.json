@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "FdR - XML to JSON ${service}",
-    "version": "1.0.14-1-PIDM-1734-conversion-error-from-FDR1-to-FDR3",
+    "version": "1.0.15",
     "description": "FDR XML to JSON API REST"
   },
   "paths": {
