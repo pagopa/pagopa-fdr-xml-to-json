@@ -57,10 +57,10 @@ microservice-chart: &microservice-chart
     allowPrivilegeEscalation: false
   resources: &resources
     requests:
-      memory: "512Mi"
-      cpu: "0.25"
+      memory: "256Mi"
+      cpu: "0.10"
     limits:
-      memory: "640Mi"
+      memory: "512Mi"
       cpu: "0.40"
   autoscaling: &autoscaling
     enable: true
@@ -159,7 +159,7 @@ httptrigger:
       memory: "100Mi"
       cpu: "0.1"
     limits:
-      memory: "768Mi"
+      memory: "512Mi"
       cpu: "0.40"
   envConfig:
     !!merge <<: *envConfig
