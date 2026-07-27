@@ -20,7 +20,7 @@
         <azure-sdk-bom.version>1.2.32</azure-sdk-bom.version>
         <resteasy.version>6.2.11.Final</resteasy.version>
         <modelmapper.version>3.1.1</modelmapper.version>
-        <jackson.version>2.18.2</jackson.version>
+        <jackson.version>2.18.8</jackson.version>
         <mockito.version>5.15.2</mockito.version>
         <jupiter.version>5.12.0</jupiter.version>
         <system.stubs.version>2.1.7</system.stubs.version>
