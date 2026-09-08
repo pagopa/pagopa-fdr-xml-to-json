@@ -51,7 +51,7 @@ jobs:
     steps:
       - name: Deploy
         if: ${{ inputs.uninstall  == 'false' ||  inputs.uninstall  == false }}
-        uses: pagopa/github-actions-template/aks-deploy@main
+        uses: pagopa/github-actions-template/aks-deploy@8e05805024deadaacb52fc78c5a52293215841dc # main
         with:
           branch: ${{ inputs.branch }}
           client_id: ${{ secrets.CD_CLIENT_ID }}
